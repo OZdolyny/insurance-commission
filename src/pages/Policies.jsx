@@ -111,8 +111,8 @@ function Policies() {
     try {
       const amount = parseFloat(formData.amount)
       const discount = parseFloat(formData.discount) || 0
-      const netAmount = amount - discount
-      const commissionAmount = netAmount * parseFloat(selectedRate.commission_rate)
+      const netAmount = amount * parseFloat(selectedRate.commission_rate)
+      const commissionAmount = netAmount - discount
 
       const { error } = await supabase
         .from('client_policies')
@@ -159,8 +159,8 @@ function Policies() {
     if (!formData.amount || !selectedRate) return 0
     const amount = parseFloat(formData.amount)
     const discount = parseFloat(formData.discount) || 0
-    const netAmount = amount - discount
-    return netAmount * parseFloat(selectedRate.commission_rate)
+    const netAmount = amount * parseFloat(selectedRate.commission_rate)
+    return netAmount - discount
   }
 
   if (loading) {
