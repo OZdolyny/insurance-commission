@@ -48,11 +48,13 @@ CREATE TABLE client_policies (
   client_id INTEGER REFERENCES clients(id) ON DELETE CASCADE,
   insurance_company_code VARCHAR(3) REFERENCES insurance_companies(code),
   insurance_policy_type VARCHAR(3) REFERENCES insurance_policy_types(type),
-  amount DECIMAL(12, 2) NOT NULL,
+  amount DECIMAL(12, 2) NOT NULL, -- Policy Amount
+  paid_amount DECIMAL(12, 2) NOT NULL, -- Amount actually paid by client
+  discount DECIMAL(12, 2) GENERATED ALWAYS AS (amount - paid_amount) STORED, -- Auto-calculated
   start_date DATE NOT NULL,
   end_date DATE,
-  discount DECIMAL(12, 2) DEFAULT 0,
   commission_rate DECIMAL(5, 4) NOT NULL,
+  no_commission BOOLEAN DEFAULT FALSE, -- If true, commission_amount = 0
   commission_amount DECIMAL(12, 2) NOT NULL,
   payment_status TEXT DEFAULT 'pending' CHECK (payment_status IN ('pending', 'paid')),
   payment_date DATE,
