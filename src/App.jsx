@@ -6,10 +6,23 @@ import Commissions from './pages/Commissions'
 import Companies from './pages/Companies'
 import PolicyTypes from './pages/PolicyTypes'
 import PolicyRates from './pages/PolicyRates'
+import { Sidebar } from './components/Sidebar'
+import { cn } from './lib/utils'
 import './index.css'
 
 function App() {
   const [currentPage, setCurrentPage] = useState('dashboard')
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
+  const pageTitle = {
+    dashboard: 'Overview',
+    clients: 'Clients',
+    policies: 'Policies',
+    commissions: 'Commissions',
+    companies: 'Insurance Companies',
+    'policy-types': 'Policy Types',
+    'policy-rates': 'Commission Rates',
+  }
 
   const renderPage = () => {
     switch (currentPage) {
@@ -33,55 +46,32 @@ function App() {
   }
 
   return (
-    <div className="app">
-      <h1>💼 Insurance Commission Tracker</h1>
+    <div className="min-h-screen bg-background">
+      <Sidebar
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        collapsed={sidebarCollapsed}
+        setCollapsed={setSidebarCollapsed}
+      />
       
-      <nav>
-        <button 
-          className={currentPage === 'dashboard' ? 'active' : ''}
-          onClick={() => setCurrentPage('dashboard')}
-        >
-          Dashboard
-        </button>
-        <button 
-          className={currentPage === 'clients' ? 'active' : ''}
-          onClick={() => setCurrentPage('clients')}
-        >
-          Clients
-        </button>
-        <button 
-          className={currentPage === 'policies' ? 'active' : ''}
-          onClick={() => setCurrentPage('policies')}
-        >
-          Policies
-        </button>
-        <button 
-          className={currentPage === 'commissions' ? 'active' : ''}
-          onClick={() => setCurrentPage('commissions')}
-        >
-          Commissions
-        </button>
-        <button 
-          className={currentPage === 'companies' ? 'active' : ''}
-          onClick={() => setCurrentPage('companies')}
-        >
-          Companies
-        </button>
-        <button 
-          className={currentPage === 'policy-types' ? 'active' : ''}
-          onClick={() => setCurrentPage('policy-types')}
-        >
-          Policy Types
-        </button>
-        <button 
-          className={currentPage === 'policy-rates' ? 'active' : ''}
-          onClick={() => setCurrentPage('policy-rates')}
-        >
-          Rates
-        </button>
-      </nav>
+      <main
+        className={cn(
+          'min-h-screen transition-all duration-300',
+          sidebarCollapsed ? 'ml-16' : 'ml-64'
+        )}
+      >
+        {/* Header */}
+        <header className="sticky top-0 z-30 flex h-16 items-center border-b border-border bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <h1 className="text-xl font-semibold text-foreground">
+            {pageTitle[currentPage]}
+          </h1>
+        </header>
 
-      {renderPage()}
+        {/* Page Content */}
+        <div className="p-6">
+          {renderPage()}
+        </div>
+      </main>
     </div>
   )
 }

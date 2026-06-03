@@ -1,24 +1,35 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card'
+import { Button } from '../components/ui/Button'
+import { Input } from '../components/ui/Input'
+import { Label } from '../components/ui/Label'
+import { Select } from '../components/ui/Select'
+import { Badge } from '../components/ui/Badge'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table'
+import { AlertCircle, CheckCircle2, DollarSign, TrendingUp, Clock, X } from 'lucide-react'
 
 function Commissions() {
   const [commissions, setCommissions] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(null)
-  const [filter, setFilter] = useState('all') // all, pending, paid
+  const [filter, setFilter] = useState('all')
   
-  // Date filter states
-  const [dateFilterType, setDateFilterType] = useState('all') // all, year, month, custom
+  const [dateFilterType, setDateFilterType] = useState('all')
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
   
-  // Payment date modal
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [selectedPolicyId, setSelectedPolicyId] = useState(null)
   const [customPaymentDate, setCustomPaymentDate] = useState(new Date().toISOString().split('T')[0])
+
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ]
 
   useEffect(() => {
     fetchCommissions()
@@ -129,10 +140,7 @@ function Commissions() {
 
   const getFilteredCommissions = () => {
     return commissions.filter(commission => {
-      // Filter by status
       const statusMatch = filter === 'all' || commission.payment_status === filter
-      
-      // Filter by date
       const dateMatch = filterByDate(commission)
       
       return statusMatch && dateMatch
@@ -149,7 +157,11 @@ function Commissions() {
   }
 
   if (loading) {
-    return <div className="loading">Loading commissions...</div>
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-muted-foreground">Loading commissions...</div>
+      </div>
+    )
   }
 
   const totals = calculateTotals()
@@ -157,434 +169,345 @@ function Commissions() {
   const availableYears = getAvailableYears()
 
   return (
-    <div>
-      <h2>Commissions</h2>
-
-      {error && <div className="error">{error}</div>}
-      {success && <div className="success">{success}</div>}
-
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-label">Total Commissions</div>
-          <div className="stat-value">${totals.total.toFixed(2)}</div>
-          <small>{totals.count} policies</small>
+    <div className="space-y-6">
+      {/* Alerts */}
+      {error && (
+        <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4" />
+          {error}
         </div>
-        
-        <div className="stat-card">
-          <div className="stat-label">Paid</div>
-          <div className="stat-value" style={{ color: '#51cf66' }}>${totals.paid.toFixed(2)}</div>
-          <small>{filteredCommissions.filter(c => c.payment_status === 'paid').length} policies</small>
-        </div>
-        
-        <div className="stat-card">
-          <div className="stat-label">Pending</div>
-          <div className="stat-value" style={{ color: '#ffd43b' }}>${totals.pending.toFixed(2)}</div>
-          <small>{filteredCommissions.filter(c => c.payment_status === 'pending').length} policies</small>
-        </div>
-      </div>
-
-      {/* Status Filter */}
-      <div style={{ marginBottom: '1.5rem' }}>
-        <h3 style={{ fontSize: '1.1em', marginBottom: '0.75rem' }}>Filter by Status</h3>
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <button 
-            onClick={() => setFilter('all')}
-            style={{ 
-              backgroundColor: filter === 'all' ? 'var(--accent-primary)' : 'var(--bg-secondary)',
-              border: '1px solid var(--border-color)',
-              padding: '0.5rem 1rem',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              color: 'var(--text-primary)',
-              fontWeight: filter === 'all' ? '600' : '400'
-            }}
-          >
-            All ({commissions.length})
-          </button>
-          <button 
-            onClick={() => setFilter('pending')}
-            style={{ 
-              backgroundColor: filter === 'pending' ? 'var(--accent-primary)' : 'var(--bg-secondary)',
-              border: '1px solid var(--border-color)',
-              padding: '0.5rem 1rem',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              color: 'var(--text-primary)',
-              fontWeight: filter === 'pending' ? '600' : '400'
-            }}
-          >
-            Pending ({commissions.filter(c => c.payment_status === 'pending').length})
-          </button>
-          <button 
-            onClick={() => setFilter('paid')}
-            style={{ 
-              backgroundColor: filter === 'paid' ? 'var(--accent-primary)' : 'var(--bg-secondary)',
-              border: '1px solid var(--border-color)',
-              padding: '0.5rem 1rem',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              color: 'var(--text-primary)',
-              fontWeight: filter === 'paid' ? '600' : '400'
-            }}
-          >
-            Paid ({commissions.filter(c => c.payment_status === 'paid').length})
-          </button>
-        </div>
-      </div>
-
-      {/* Date Filter */}
-      <div style={{ marginBottom: '2rem', padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-        <h3 style={{ fontSize: '1.1em', marginBottom: '1rem' }}>Filter by Commission Date (Policy Start Date)</h3>
-        
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-          <button 
-            onClick={() => setDateFilterType('all')}
-            style={{ 
-              backgroundColor: dateFilterType === 'all' ? 'var(--accent-primary)' : 'var(--bg-tertiary)',
-              border: '1px solid var(--border-color)',
-              padding: '0.5rem 1rem',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              color: 'var(--text-primary)',
-              fontWeight: dateFilterType === 'all' ? '600' : '400'
-            }}
-          >
-            All Data
-          </button>
-          <button 
-            onClick={() => setDateFilterType('year')}
-            style={{ 
-              backgroundColor: dateFilterType === 'year' ? 'var(--accent-primary)' : 'var(--bg-tertiary)',
-              border: '1px solid var(--border-color)',
-              padding: '0.5rem 1rem',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              color: 'var(--text-primary)',
-              fontWeight: dateFilterType === 'year' ? '600' : '400'
-            }}
-          >
-            By Year
-          </button>
-          <button 
-            onClick={() => setDateFilterType('month')}
-            style={{ 
-              backgroundColor: dateFilterType === 'month' ? 'var(--accent-primary)' : 'var(--bg-tertiary)',
-              border: '1px solid var(--border-color)',
-              padding: '0.5rem 1rem',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              color: 'var(--text-primary)',
-              fontWeight: dateFilterType === 'month' ? '600' : '400'
-            }}
-          >
-            By Month
-          </button>
-          <button 
-            onClick={() => setDateFilterType('custom')}
-            style={{ 
-              backgroundColor: dateFilterType === 'custom' ? 'var(--accent-primary)' : 'var(--bg-tertiary)',
-              border: '1px solid var(--border-color)',
-              padding: '0.5rem 1rem',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              color: 'var(--text-primary)',
-              fontWeight: dateFilterType === 'custom' ? '600' : '400'
-            }}
-          >
-            Custom Range
-          </button>
-        </div>
-
-        {dateFilterType === 'year' && (
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Select Year:</label>
-            <select 
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-              style={{ 
-                padding: '0.5rem', 
-                borderRadius: '8px', 
-                border: '1px solid var(--border-color)',
-                backgroundColor: 'var(--bg-tertiary)',
-                color: 'var(--text-primary)',
-                minWidth: '150px'
-              }}
-            >
-              {availableYears.map(year => (
-                <option key={year} value={year}>{year}</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {dateFilterType === 'month' && (
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Year:</label>
-              <select 
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                style={{ 
-                  padding: '0.5rem', 
-                  borderRadius: '8px', 
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'var(--bg-tertiary)',
-                  color: 'var(--text-primary)',
-                  minWidth: '120px'
-                }}
-              >
-                {availableYears.map(year => (
-                  <option key={year} value={year}>{year}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Month:</label>
-              <select 
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                style={{ 
-                  padding: '0.5rem', 
-                  borderRadius: '8px', 
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'var(--bg-tertiary)',
-                  color: 'var(--text-primary)',
-                  minWidth: '150px'
-                }}
-              >
-                <option value={1}>January</option>
-                <option value={2}>February</option>
-                <option value={3}>March</option>
-                <option value={4}>April</option>
-                <option value={5}>May</option>
-                <option value={6}>June</option>
-                <option value={7}>July</option>
-                <option value={8}>August</option>
-                <option value={9}>September</option>
-                <option value={10}>October</option>
-                <option value={11}>November</option>
-                <option value={12}>December</option>
-              </select>
-            </div>
-          </div>
-        )}
-
-        {dateFilterType === 'custom' && (
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Start Date:</label>
-              <input 
-                type="date"
-                value={customStartDate}
-                onChange={(e) => setCustomStartDate(e.target.value)}
-                style={{ 
-                  padding: '0.5rem', 
-                  borderRadius: '8px', 
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'var(--bg-tertiary)',
-                  color: 'var(--text-primary)'
-                }}
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>End Date:</label>
-              <input 
-                type="date"
-                value={customEndDate}
-                onChange={(e) => setCustomEndDate(e.target.value)}
-                style={{ 
-                  padding: '0.5rem', 
-                  borderRadius: '8px', 
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'var(--bg-tertiary)',
-                  color: 'var(--text-primary)'
-                }}
-              />
-            </div>
-          </div>
-        )}
-      </div>
-
-      <h3>Commission List ({filteredCommissions.length})</h3>
-      
-      {filteredCommissions.length === 0 ? (
-        <p>No commissions found with the selected filters.</p>
-      ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>Client</th>
-              <th>Company</th>
-              <th>Policy Type</th>
-              <th>Premium</th>
-              <th>Commission</th>
-              <th>Status</th>
-              <th>Commission Date</th>
-              <th>Payment Date</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredCommissions.map((commission) => (
-              <tr key={commission.id}>
-                <td>
-                  <strong>{commission.clients?.first_name} {commission.clients?.last_name}</strong>
-                  {commission.clients?.phone_number && (
-                    <div style={{ fontSize: '0.85em', color: 'var(--text-tertiary)' }}>
-                      {commission.clients?.phone_number}
-                    </div>
-                  )}
-                </td>
-                <td>{commission.insurance_companies?.name}</td>
-                <td>{commission.insurance_policy_types?.name}</td>
-                <td>
-                  ${parseFloat(commission.amount).toFixed(2)}
-                  {commission.discount > 0 && (
-                    <div style={{ fontSize: '0.85em', color: 'var(--text-tertiary)' }}>
-                      Discount: -${parseFloat(commission.discount).toFixed(2)}
-                    </div>
-                  )}
-                </td>
-                <td>
-                  <strong style={{ color: 'var(--success)', fontSize: '1.1em' }}>
-                    ${parseFloat(commission.commission_amount).toFixed(2)}
-                  </strong>
-                  <div style={{ fontSize: '0.85em', color: 'var(--text-tertiary)' }}>
-                    {(parseFloat(commission.commission_rate) * 100).toFixed(2)}%
-                  </div>
-                </td>
-                <td>
-                  <span style={{ 
-                    padding: '0.25rem 0.75rem', 
-                    borderRadius: '12px',
-                    backgroundColor: commission.payment_status === 'paid' ? 'var(--success-bg)' : 'var(--warning-bg)',
-                    color: commission.payment_status === 'paid' ? 'var(--success)' : 'var(--warning)',
-                    fontWeight: '500'
-                  }}>
-                    {commission.payment_status}
-                  </span>
-                </td>
-                <td>{new Date(commission.start_date).toLocaleDateString()}</td>
-                <td>
-                  {commission.payment_date 
-                    ? new Date(commission.payment_date).toLocaleDateString()
-                    : '-'
-                  }
-                </td>
-                <td>
-                  {commission.payment_status === 'pending' ? (
-                    <button
-                      onClick={() => openPaymentModal(commission.id)}
-                      style={{
-                        padding: '0.4rem 0.8rem',
-                        fontSize: '0.9em',
-                        backgroundColor: 'var(--success)',
-                        border: 'none',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        color: 'white'
-                      }}
-                    >
-                      Mark as Paid
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => markAsPending(commission.id)}
-                      style={{
-                        padding: '0.4rem 0.8rem',
-                        fontSize: '0.9em',
-                        backgroundColor: 'var(--warning)',
-                        border: 'none',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        color: '#000'
-                      }}
-                    >
-                      Mark as Pending
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       )}
+      {success && (
+        <div className="flex items-center gap-2 rounded-lg border border-success/50 bg-success/10 p-4 text-sm text-success">
+          <CheckCircle2 className="h-4 w-4" />
+          {success}
+        </div>
+      )}
+
+      {/* Stats Grid */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted">
+                <TrendingUp className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Commissions</p>
+                <p className="text-2xl font-bold">${totals.total.toFixed(2)}</p>
+                <p className="text-xs text-muted-foreground">{totals.count} policies</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-success/10">
+                <CheckCircle2 className="h-6 w-6 text-success" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Paid</p>
+                <p className="text-2xl font-bold text-success">${totals.paid.toFixed(2)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {filteredCommissions.filter(c => c.payment_status === 'paid').length} policies
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-warning/10">
+                <Clock className="h-6 w-6 text-warning" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Pending</p>
+                <p className="text-2xl font-bold text-warning">${totals.pending.toFixed(2)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {filteredCommissions.filter(c => c.payment_status === 'pending').length} policies
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Status Filter */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Filter by Status</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { value: 'all', label: `All (${commissions.length})` },
+                { value: 'pending', label: `Pending (${commissions.filter(c => c.payment_status === 'pending').length})` },
+                { value: 'paid', label: `Paid (${commissions.filter(c => c.payment_status === 'paid').length})` },
+              ].map((f) => (
+                <Button
+                  key={f.value}
+                  variant={filter === f.value ? 'default' : 'secondary'}
+                  size="sm"
+                  onClick={() => setFilter(f.value)}
+                >
+                  {f.label}
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Date Filter */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Filter by Date</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {[
+                { value: 'all', label: 'All Time' },
+                { value: 'year', label: 'By Year' },
+                { value: 'month', label: 'By Month' },
+                { value: 'custom', label: 'Custom' },
+              ].map((f) => (
+                <Button
+                  key={f.value}
+                  variant={dateFilterType === f.value ? 'default' : 'secondary'}
+                  size="sm"
+                  onClick={() => setDateFilterType(f.value)}
+                >
+                  {f.label}
+                </Button>
+              ))}
+            </div>
+
+            {dateFilterType === 'year' && availableYears.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Label className="text-muted-foreground">Year:</Label>
+                <Select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                  className="w-32"
+                >
+                  {availableYears.map(year => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </Select>
+              </div>
+            )}
+
+            {dateFilterType === 'month' && availableYears.length > 0 && (
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Label className="text-muted-foreground">Year:</Label>
+                  <Select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                    className="w-28"
+                  >
+                    {availableYears.map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-muted-foreground">Month:</Label>
+                  <Select
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                    className="w-36"
+                  >
+                    {months.map((month, idx) => (
+                      <option key={idx + 1} value={idx + 1}>{month}</option>
+                    ))}
+                  </Select>
+                </div>
+              </div>
+            )}
+
+            {dateFilterType === 'custom' && (
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Label className="text-muted-foreground">From:</Label>
+                  <Input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="w-40"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-muted-foreground">To:</Label>
+                  <Input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="w-40"
+                  />
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Commissions Table */}
+      <div>
+        <h3 className="mb-4 text-lg font-semibold">Commission List ({filteredCommissions.length})</h3>
+        
+        {filteredCommissions.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <DollarSign className="mb-4 h-12 w-12 text-muted-foreground" />
+              <p className="text-muted-foreground">No commissions found with the selected filters.</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Company</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Premium</TableHead>
+                  <TableHead>Commission</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Dates</TableHead>
+                  <TableHead>Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredCommissions.map((commission) => (
+                  <TableRow key={commission.id}>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">
+                          {commission.clients?.first_name} {commission.clients?.last_name}
+                        </div>
+                        {commission.clients?.phone_number && (
+                          <div className="text-xs text-muted-foreground">
+                            {commission.clients?.phone_number}
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                          {commission.insurance_companies?.code}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                        {commission.insurance_policy_types?.type}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium">${parseFloat(commission.amount).toFixed(2)}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-0.5">
+                        <div className="font-medium text-success">
+                          ${parseFloat(commission.commission_amount).toFixed(2)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {(parseFloat(commission.commission_rate) * 100).toFixed(2)}%
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={commission.payment_status === 'paid' ? 'success' : 'warning'}>
+                        {commission.payment_status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-0.5 text-sm">
+                        <div className="text-muted-foreground">
+                          {new Date(commission.start_date).toLocaleDateString()}
+                        </div>
+                        {commission.payment_date && (
+                          <div className="text-xs text-success">
+                            Paid: {new Date(commission.payment_date).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {commission.payment_status === 'pending' ? (
+                        <Button
+                          variant="success"
+                          size="sm"
+                          onClick={() => openPaymentModal(commission.id)}
+                        >
+                          Mark Paid
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="warning"
+                          size="sm"
+                          onClick={() => markAsPending(commission.id)}
+                        >
+                          Mark Pending
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
 
       {/* Payment Date Modal */}
       {showPaymentModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.7)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            backgroundColor: 'var(--bg-secondary)',
-            padding: '2rem',
-            borderRadius: '12px',
-            border: '1px solid var(--border-color)',
-            maxWidth: '400px',
-            width: '90%'
-          }}>
-            <h3 style={{ marginTop: 0, marginBottom: '1.5rem' }}>Set Payment Date</h3>
-            
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
-                Payment Date:
-              </label>
-              <input
-                type="date"
-                value={customPaymentDate}
-                onChange={(e) => setCustomPaymentDate(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'var(--bg-tertiary)',
-                  color: 'var(--text-primary)',
-                  fontSize: '1em'
-                }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => setShowPaymentModal(false)}
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'var(--bg-tertiary)',
-                  color: 'var(--text-primary)',
-                  cursor: 'pointer',
-                  fontWeight: '500'
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmMarkAsPaid}
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: 'linear-gradient(135deg, var(--success) 0%, #059669 100%)',
-                  color: 'white',
-                  cursor: 'pointer',
-                  fontWeight: '600'
-                }}
-              >
-                Confirm
-              </button>
-            </div>
-          </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Set Payment Date</CardTitle>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowPaymentModal(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <CardDescription>Choose when this commission was paid</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="payment_date">Payment Date</Label>
+                <Input
+                  id="payment_date"
+                  type="date"
+                  value={customPaymentDate}
+                  onChange={(e) => setCustomPaymentDate(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={confirmMarkAsPaid} className="flex-1">
+                  Confirm
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowPaymentModal(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>
