@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Button } from '../components/ui/Button'
 import { Select } from '../components/ui/Select'
 import { Label } from '../components/ui/Label'
+import { formatAmount } from '../lib/utils'
 import { Users, FileText, DollarSign, TrendingUp, Clock, CheckCircle2, Lightbulb, BookOpen } from 'lucide-react'
 
 function Dashboard() {
@@ -202,7 +203,7 @@ function Dashboard() {
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Earned</p>
-                <p className="text-2xl font-bold">${stats.totalCommissions.toFixed(2)}</p>
+                <p className="text-2xl font-bold">{formatAmount(stats.totalCommissions)}</p>
               </div>
             </div>
           </CardContent>
@@ -216,7 +217,7 @@ function Dashboard() {
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Paid</p>
-                <p className="text-2xl font-bold text-success">${stats.paidCommissions.toFixed(2)}</p>
+                <p className="text-2xl font-bold text-success">{formatAmount(stats.paidCommissions)}</p>
               </div>
             </div>
           </CardContent>
@@ -230,7 +231,7 @@ function Dashboard() {
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Pending</p>
-                <p className="text-2xl font-bold text-warning">${stats.pendingCommissions.toFixed(2)}</p>
+                <p className="text-2xl font-bold text-warning">{formatAmount(stats.pendingCommissions)}</p>
               </div>
             </div>
           </CardContent>

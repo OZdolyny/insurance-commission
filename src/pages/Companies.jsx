@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Label } from '../components/ui/Label'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table'
+import { formatDate } from '../lib/utils'
 import { Plus, AlertCircle, CheckCircle2, Building2 } from 'lucide-react'
 
 function Companies() {
@@ -258,7 +259,7 @@ function Companies() {
                   )}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {new Date(company.created_at).toLocaleDateString()}
+                  {formatDate(company.created_at)}
                 </TableCell>
               </TableRow>
             ))}

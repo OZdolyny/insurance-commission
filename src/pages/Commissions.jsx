@@ -7,6 +7,7 @@ import { Label } from '../components/ui/Label'
 import { Select } from '../components/ui/Select'
 import { Badge } from '../components/ui/Badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table'
+import { formatAmount, formatDate } from '../lib/utils'
 import { AlertCircle, CheckCircle2, DollarSign, TrendingUp, Clock, X } from 'lucide-react'
 
 function Commissions() {
@@ -194,7 +195,7 @@ function Commissions() {
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Commissions</p>
-                <p className="text-2xl font-bold">${totals.total.toFixed(2)}</p>
+                <p className="text-2xl font-bold">{formatAmount(totals.total)}</p>
                 <p className="text-xs text-muted-foreground">{totals.count} policies</p>
               </div>
             </div>
@@ -209,7 +210,7 @@ function Commissions() {
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Paid</p>
-                <p className="text-2xl font-bold text-success">${totals.paid.toFixed(2)}</p>
+                <p className="text-2xl font-bold text-success">{formatAmount(totals.paid)}</p>
                 <p className="text-xs text-muted-foreground">
                   {filteredCommissions.filter(c => c.payment_status === 'paid').length} policies
                 </p>
@@ -226,7 +227,7 @@ function Commissions() {
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Pending</p>
-                <p className="text-2xl font-bold text-warning">${totals.pending.toFixed(2)}</p>
+                <p className="text-2xl font-bold text-warning">{formatAmount(totals.pending)}</p>
                 <p className="text-xs text-muted-foreground">
                   {filteredCommissions.filter(c => c.payment_status === 'pending').length} policies
                 </p>
@@ -411,12 +412,12 @@ function Commissions() {
                       </span>
                     </TableCell>
                     <TableCell>
-                      <div className="font-medium">${parseFloat(commission.amount).toFixed(2)}</div>
+                      <div className="font-medium">{formatAmount(commission.amount)}</div>
                     </TableCell>
                     <TableCell>
                       <div className="space-y-0.5">
                         <div className="font-medium text-success">
-                          ${parseFloat(commission.commission_amount).toFixed(2)}
+                          {formatAmount(commission.commission_amount)}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {(parseFloat(commission.commission_rate) * 100).toFixed(2)}%
@@ -431,11 +432,11 @@ function Commissions() {
                     <TableCell>
                       <div className="space-y-0.5 text-sm">
                         <div className="text-muted-foreground">
-                          {new Date(commission.start_date).toLocaleDateString()}
+                          {formatDate(commission.start_date)}
                         </div>
                         {commission.payment_date && (
                           <div className="text-xs text-success">
-                            Paid: {new Date(commission.payment_date).toLocaleDateString()}
+                            Paid: {formatDate(commission.payment_date)}
                           </div>
                         )}
                       </div>

@@ -7,6 +7,7 @@ import { Label } from '../components/ui/Label'
 import { Select } from '../components/ui/Select'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table'
 import { Badge } from '../components/ui/Badge'
+import { formatDate } from '../lib/utils'
 import { Plus, AlertCircle, CheckCircle2, Percent } from 'lucide-react'
 
 function PolicyRates() {
@@ -261,7 +262,7 @@ function PolicyRates() {
                   </Badge>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {new Date(rate.created_at).toLocaleDateString()}
+                  {formatDate(rate.created_at)}
                 </TableCell>
               </TableRow>
             ))}

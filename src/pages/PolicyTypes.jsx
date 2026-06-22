@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Label } from '../components/ui/Label'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table'
+import { formatDate } from '../lib/utils'
 import { Plus, AlertCircle, CheckCircle2, Layers } from 'lucide-react'
 
 function PolicyTypes() {
@@ -190,7 +191,7 @@ function PolicyTypes() {
                 </TableCell>
                 <TableCell className="font-medium">{policyType.name}</TableCell>
                 <TableCell className="text-muted-foreground">
-                  {new Date(policyType.created_at).toLocaleDateString()}
+                  {formatDate(policyType.created_at)}
                 </TableCell>
               </TableRow>
             ))}

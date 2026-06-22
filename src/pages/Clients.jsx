@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Label } from '../components/ui/Label'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table'
+import { formatDate } from '../lib/utils'
 import { Plus, AlertCircle, CheckCircle2 } from 'lucide-react'
 
 function Clients() {
@@ -229,7 +230,7 @@ function Clients() {
                 <TableCell className="text-muted-foreground">{client.father_name || '-'}</TableCell>
                 <TableCell>{client.phone_number || '-'}</TableCell>
                 <TableCell className="text-muted-foreground">{client.email || '-'}</TableCell>
-                <TableCell className="text-muted-foreground">{new Date(client.created_at).toLocaleDateString()}</TableCell>
+                <TableCell className="text-muted-foreground">{formatDate(client.created_at)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

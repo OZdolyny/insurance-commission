@@ -7,6 +7,7 @@ import { Label } from '../components/ui/Label'
 import { Select } from '../components/ui/Select'
 import { Badge } from '../components/ui/Badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table'
+import { formatAmount, formatDate } from '../lib/utils'
 import { Plus, AlertCircle, CheckCircle2, FileText, Pencil, Trash2 } from 'lucide-react'
 
 function Policies() {
@@ -390,7 +391,7 @@ function Policies() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="amount">Policy Amount ($) *</Label>
+                  <Label htmlFor="amount">Policy Amount *</Label>
                   <Input
                     id="amount"
                     name="amount"
@@ -404,7 +405,7 @@ function Policies() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="paid_amount">Paid Amount ($) *</Label>
+                  <Label htmlFor="paid_amount">Paid Amount *</Label>
                   <Input
                     id="paid_amount"
                     name="paid_amount"
@@ -423,17 +424,17 @@ function Policies() {
                 <div className="rounded-lg border border-border bg-muted p-4 space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Discount:</span>
-                    <span>${(parseFloat(formData.amount) - parseFloat(formData.paid_amount)).toFixed(2)}</span>
+                    <span>{formatAmount(parseFloat(formData.amount) - parseFloat(formData.paid_amount))}</span>
                   </div>
                   {selectedRate && !formData.no_commission && (
                     <>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Full Commission:</span>
-                        <span>${(parseFloat(formData.amount) * parseFloat(selectedRate.commission_rate)).toFixed(2)}</span>
+                        <span>{formatAmount(parseFloat(formData.amount) * parseFloat(selectedRate.commission_rate))}</span>
                       </div>
                       <div className="flex justify-between font-medium text-success pt-2 border-t border-border">
                         <span>Your Commission:</span>
-                        <span>${calculateCommission().toFixed(2)}</span>
+                        <span>{formatAmount(calculateCommission())}</span>
                       </div>
                     </>
                   )}
@@ -451,13 +452,13 @@ function Policies() {
                   className="h-4 w-4 rounded border-input"
                 />
                 <Label htmlFor="no_commission" className="font-normal text-muted-foreground">
-                  Set Commission as $0 (No commission for this policy)
+                  Set Commission as 0 (No commission for this policy)
                 </Label>
               </div>
 
               {formData.no_commission && (
                 <div className="rounded-lg border border-warning/50 bg-warning/10 p-3 text-sm text-warning">
-                  Commission set to $0.00 (No commission)
+                  Commission set to 0.00 (No commission)
                 </div>
               )}
 
@@ -570,9 +571,9 @@ function Policies() {
                     </TableCell>
                     <TableCell>
                       <div className="space-y-0.5">
-                        <div className="font-medium">${parseFloat(policy.amount).toFixed(2)}</div>
+                        <div className="font-medium">{formatAmount(policy.amount)}</div>
                         <div className="text-xs text-muted-foreground">
-                          Paid: ${parseFloat(policy.paid_amount).toFixed(2)}
+                          Paid: {formatAmount(policy.paid_amount)}
                         </div>
                       </div>
                     </TableCell>
@@ -582,7 +583,7 @@ function Policies() {
                       ) : (
                         <div className="space-y-0.5">
                           <div className="font-medium text-success">
-                            ${parseFloat(policy.commission_amount).toFixed(2)}
+                            {formatAmount(policy.commission_amount)}
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {(parseFloat(policy.commission_rate) * 100).toFixed(2)}%
@@ -592,11 +593,11 @@ function Policies() {
                     </TableCell>
                     <TableCell>
                       <div className="space-y-0.5 text-sm">
-                        <div>{new Date(policy.start_date).toLocaleDateString()}</div>
+                        <div>{formatDate(policy.start_date)}</div>
                         {policy.end_date && (
                           <div className="flex items-center gap-1">
                             <span className="text-muted-foreground">
-                              {new Date(policy.end_date).toLocaleDateString()}
+                              {formatDate(policy.end_date)}
                             </span>
                             {daysUntilExpiry !== null && (
                               <Badge variant={daysUntilExpiry < 0 ? 'error' : daysUntilExpiry <= 30 ? 'warning' : 'secondary'}>
