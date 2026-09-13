@@ -5,8 +5,8 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Label } from '../components/ui/Label'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table'
-import { formatDate } from '../lib/utils'
-import { Plus, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { formatDate, formatPhoneNumber } from '../lib/utils'
+import { Plus, AlertCircle, CheckCircle2, Pencil } from 'lucide-react'
 
 function Clients() {
   const [clients, setClients] = useState([])
@@ -14,15 +14,18 @@ function Clients() {
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(null)
   const [showForm, setShowForm] = useState(false)
-  
-  const [formData, setFormData] = useState({
+  const [editingClientId, setEditingClientId] = useState(null)
+
+  const emptyForm = {
     first_name: '',
     last_name: '',
     father_name: '',
     phone_number: '',
     email: '',
     comment: ''
-  })
+  }
+
+  const [formData, setFormData] = useState(emptyForm)
 
   useEffect(() => {
     fetchClients()
@@ -50,24 +53,19 @@ function Clients() {
     setSuccess(null)
 
     try {
-      const { error } = await supabase
-        .from('clients')
-        .insert([formData])
+      const query = editingClientId
+        ? supabase.from('clients').update(formData).eq('id', editingClientId)
+        : supabase.from('clients').insert([formData])
+      const { error } = await query
 
       if (error) throw error
 
-      setSuccess('Client added successfully!')
-      setFormData({ 
-        first_name: '', 
-        last_name: '', 
-        father_name: '', 
-        phone_number: '', 
-        email: '', 
-        comment: '' 
-      })
+      setSuccess(editingClientId ? 'Client updated successfully!' : 'Client added successfully!')
+      setFormData(emptyForm)
+      setEditingClientId(null)
       setShowForm(false)
       fetchClients()
-      
+
       setTimeout(() => setSuccess(null), 3000)
     } catch (error) {
       setError(error.message)
@@ -75,10 +73,30 @@ function Clients() {
   }
 
   const handleChange = (e) => {
+    const { name, value } = e.target
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: name === 'phone_number' ? formatPhoneNumber(value) : value
     })
+  }
+
+  const startEditing = (client) => {
+    setEditingClientId(client.id)
+    setFormData({
+      first_name: client.first_name || '',
+      last_name: client.last_name || '',
+      father_name: client.father_name || '',
+      phone_number: formatPhoneNumber(client.phone_number),
+      email: client.email || '',
+      comment: client.comment || ''
+    })
+    setShowForm(true)
+  }
+
+  const cancelForm = () => {
+    setFormData(emptyForm)
+    setEditingClientId(null)
+    setShowForm(false)
   }
 
   if (loading) {
@@ -111,7 +129,7 @@ function Clients() {
           <h2 className="text-lg font-semibold">Client List</h2>
           <p className="text-sm text-muted-foreground">{clients.length} total clients</p>
         </div>
-        <Button onClick={() => setShowForm(!showForm)}>
+        <Button onClick={() => (showForm ? cancelForm() : setShowForm(true))}>
           <Plus className="h-4 w-4" />
           Add Client
         </Button>
@@ -121,8 +139,8 @@ function Clients() {
       {showForm && (
         <Card>
           <CardHeader>
-            <CardTitle>Add New Client</CardTitle>
-            <CardDescription>Enter the client&apos;s information below</CardDescription>
+            <CardTitle>{editingClientId ? 'Edit Client' : 'Add New Client'}</CardTitle>
+            <CardDescription>{editingClientId ? 'Update the client&apos;s information below' : 'Enter the client&apos;s information below'}</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
@@ -164,6 +182,8 @@ function Clients() {
                   id="phone_number"
                   name="phone_number"
                   type="tel"
+                  inputMode="tel"
+                  placeholder="(xxx) xxx xx xx"
                   value={formData.phone_number}
                   onChange={handleChange}
                 />
@@ -193,8 +213,8 @@ function Clients() {
               </div>
 
               <div className="flex gap-2 md:col-span-2">
-                <Button type="submit">Add Client</Button>
-                <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>
+                <Button type="submit">{editingClientId ? 'Save Changes' : 'Add Client'}</Button>
+                <Button type="button" variant="secondary" onClick={cancelForm}>
                   Cancel
                 </Button>
               </div>
@@ -219,7 +239,9 @@ function Clients() {
               <TableHead>Father Name</TableHead>
               <TableHead>Phone</TableHead>
               <TableHead>Email</TableHead>
+              <TableHead>Comment</TableHead>
               <TableHead>Added</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -230,7 +252,20 @@ function Clients() {
                 <TableCell className="text-muted-foreground">{client.father_name || '-'}</TableCell>
                 <TableCell>{client.phone_number || '-'}</TableCell>
                 <TableCell className="text-muted-foreground">{client.email || '-'}</TableCell>
+                <TableCell className="max-w-[240px] truncate text-muted-foreground" title={client.comment || undefined}>
+                  {client.comment || '-'}
+                </TableCell>
                 <TableCell className="text-muted-foreground">{formatDate(client.created_at)}</TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Edit ${client.first_name} ${client.last_name}`}
+                    onClick={() => startEditing(client)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

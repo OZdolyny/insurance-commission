@@ -23,3 +23,13 @@ export function formatAmount(value) {
     maximumFractionDigits: 2,
   })
 }
+
+// Format a phone number as (XXX) XXX XX XX while typing
+export function formatPhoneNumber(value) {
+  const digits = String(value || '').replace(/\D/g, '').slice(0, 9)
+  if (!digits) return ''
+  if (digits.length <= 3) return `(${digits}`
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`
+  if (digits.length <= 8) return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)} ${digits.slice(6)}`
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)} ${digits.slice(6, 8)} ${digits.slice(8)}`
+}
