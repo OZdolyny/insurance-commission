@@ -184,7 +184,7 @@ function Clients() {
                   name="phone_number"
                   type="tel"
                   inputMode="tel"
-                  placeholder="(093) 325 65 54"
+                  placeholder="(xxx) xxx xx xx"
                   value={formData.phone_number}
                   onChange={handleChange}
                 />
