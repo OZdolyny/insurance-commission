@@ -4,7 +4,8 @@
 -- Step 1: Add new columns to client_policies
 ALTER TABLE client_policies 
 ADD COLUMN IF NOT EXISTS paid_amount DECIMAL(12, 2),
-ADD COLUMN IF NOT EXISTS no_commission BOOLEAN DEFAULT FALSE;
+ADD COLUMN IF NOT EXISTS no_commission BOOLEAN DEFAULT FALSE,
+ADD COLUMN IF NOT EXISTS comment TEXT NULL;
 
 -- Step 2: Set paid_amount equal to amount for existing records (assumes no discount previously)
 UPDATE client_policies 
