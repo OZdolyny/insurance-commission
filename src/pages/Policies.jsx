@@ -32,6 +32,7 @@ function Policies() {
     start_date: '',
     end_date: '',
     policy_number: '',
+    comment: '',
     no_commission: false
   })
 
@@ -127,6 +128,7 @@ function Policies() {
         start_date: formData.start_date,
         end_date: formData.end_date || null,
         policy_number: formData.policy_number || null,
+        comment: formData.comment || null,
         commission_rate: formData.no_commission ? 0 : parseFloat(selectedRate.commission_rate),
         commission_amount: commissionAmount,
         no_commission: formData.no_commission,
@@ -170,6 +172,7 @@ function Policies() {
       start_date: policy.start_date,
       end_date: policy.end_date || '',
       policy_number: policy.policy_number || '',
+      comment: policy.comment || '',
       no_commission: policy.no_commission || false
     })
     setEditingId(policy.id)
@@ -462,6 +465,19 @@ function Policies() {
                 </div>
               )}
 
+              <div className="space-y-2">
+                <Label htmlFor="comment">Comment</Label>
+                <textarea
+                  id="comment"
+                  name="comment"
+                  value={formData.comment}
+                  onChange={handleChange}
+                  rows={3}
+                  className="flex min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                  placeholder="Add a note about this policy"
+                />
+              </div>
+
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="start_date">Start Date *</Label>
@@ -542,6 +558,7 @@ function Policies() {
                 <TableHead>Amount</TableHead>
                 <TableHead>Commission</TableHead>
                 <TableHead>Dates</TableHead>
+                <TableHead>Comment</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -610,6 +627,9 @@ function Policies() {
                           </div>
                         )}
                       </div>
+                    </TableCell>
+                    <TableCell className="max-w-[240px] truncate text-muted-foreground" title={policy.comment || undefined}>
+                      {policy.comment || '-'}
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
