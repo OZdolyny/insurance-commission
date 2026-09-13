@@ -7,7 +7,7 @@ import { Label } from '../components/ui/Label'
 import { Select } from '../components/ui/Select'
 import { Badge } from '../components/ui/Badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table'
-import { formatAmount, formatDate } from '../lib/utils'
+import { formatAmount, formatDate, formatDateInput, maskDateInput, parseDateInput } from '../lib/utils'
 import { Plus, AlertCircle, CheckCircle2, FileText, Pencil, Trash2 } from 'lucide-react'
 
 function Policies() {
@@ -125,8 +125,8 @@ function Policies() {
         insurance_policy_type: formData.insurance_policy_type,
         amount: parseFloat(formData.amount),
         paid_amount: parseFloat(formData.paid_amount),
-        start_date: formData.start_date,
-        end_date: formData.end_date || null,
+        start_date: parseDateInput(formData.start_date),
+        end_date: parseDateInput(formData.end_date) || null,
         policy_number: formData.policy_number || null,
         comment: formData.comment || null,
         commission_rate: formData.no_commission ? 0 : parseFloat(selectedRate.commission_rate),
@@ -169,15 +169,15 @@ function Policies() {
       insurance_policy_type: policy.insurance_policy_type,
       amount: policy.amount.toString(),
       paid_amount: policy.paid_amount.toString(),
-      start_date: policy.start_date,
-      end_date: policy.end_date || '',
+      start_date: formatDateInput(policy.start_date),
+      end_date: policy.end_date ? formatDateInput(policy.end_date) : '',
       policy_number: policy.policy_number || '',
       comment: policy.comment || '',
       no_commission: policy.no_commission || false
     })
     setEditingId(policy.id)
     setShowForm(true)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    requestAnimationFrame(() => document.getElementById('policy-edit-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
   }
 
   const handleDelete = async (id) => {
@@ -304,9 +304,9 @@ function Policies() {
 
       {/* Add/Edit Policy Form */}
       {showForm && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{editingId ? 'Update Policy' : 'Add New Policy'}</CardTitle>
+          <Card id="policy-edit-form">
+            <CardHeader>
+              <CardTitle>{editingId ? 'Update Policy' : 'Add New Policy'}</CardTitle>
             <CardDescription>Enter the policy details. Commission will be auto-calculated.</CardDescription>
           </CardHeader>
           <CardContent>
@@ -484,9 +484,11 @@ function Policies() {
                   <Input
                     id="start_date"
                     name="start_date"
-                    type="date"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="dd/mm/yyyy"
                     value={formData.start_date}
-                    onChange={handleChange}
+                    onChange={(e) => setFormData({ ...formData, start_date: maskDateInput(e.target.value) })}
                     required
                   />
                 </div>
@@ -496,9 +498,11 @@ function Policies() {
                   <Input
                     id="end_date"
                     name="end_date"
-                    type="date"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="dd/mm/yyyy"
                     value={formData.end_date}
-                    onChange={handleChange}
+                    onChange={(e) => setFormData({ ...formData, end_date: maskDateInput(e.target.value) })}
                   />
                 </div>
               </div>

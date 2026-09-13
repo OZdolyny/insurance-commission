@@ -91,6 +91,7 @@ function Clients() {
       comment: client.comment || ''
     })
     setShowForm(true)
+    requestAnimationFrame(() => document.getElementById('client-edit-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
   }
 
   const cancelForm = () => {
@@ -137,9 +138,9 @@ function Clients() {
 
       {/* Add Client Form */}
       {showForm && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{editingClientId ? 'Edit Client' : 'Add New Client'}</CardTitle>
+          <Card id="client-edit-form">
+            <CardHeader>
+              <CardTitle>{editingClientId ? 'Edit Client' : 'Add New Client'}</CardTitle>
             <CardDescription>{editingClientId ? 'Update the client&apos;s information below' : 'Enter the client&apos;s information below'}</CardDescription>
           </CardHeader>
           <CardContent>

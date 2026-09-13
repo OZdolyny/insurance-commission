@@ -7,7 +7,7 @@ import { Label } from '../components/ui/Label'
 import { Select } from '../components/ui/Select'
 import { Badge } from '../components/ui/Badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table'
-import { formatAmount, formatDate } from '../lib/utils'
+import { formatAmount, formatDate, formatDateInput, maskDateInput, parseDateInput } from '../lib/utils'
 import { AlertCircle, CheckCircle2, DollarSign, TrendingUp, Clock, X } from 'lucide-react'
 
 function Commissions() {
@@ -25,7 +25,7 @@ function Commissions() {
   
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [selectedPolicyId, setSelectedPolicyId] = useState(null)
-  const [customPaymentDate, setCustomPaymentDate] = useState(new Date().toISOString().split('T')[0])
+  const [customPaymentDate, setCustomPaymentDate] = useState(formatDateInput(new Date().toISOString().split('T')[0]))
 
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -69,7 +69,7 @@ function Commissions() {
         .from('client_policies')
         .update({ 
           payment_status: 'paid',
-          payment_date: customPaymentDate
+          payment_date: parseDateInput(customPaymentDate)
         })
         .eq('id', selectedPolicyId)
 
@@ -130,8 +130,9 @@ function Commissions() {
       
       case 'custom':
         if (!customStartDate || !customEndDate) return true
-        const start = new Date(customStartDate)
-        const end = new Date(customEndDate)
+        const start = new Date(parseDateInput(customStartDate))
+        const end = new Date(parseDateInput(customEndDate))
+        end.setHours(23, 59, 59, 999)
         return commissionDate >= start && commissionDate <= end
       
       default:
@@ -337,18 +338,22 @@ function Commissions() {
                 <div className="flex items-center gap-2">
                   <Label className="text-muted-foreground">From:</Label>
                   <Input
-                    type="date"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="dd/mm/yyyy"
                     value={customStartDate}
-                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    onChange={(e) => setCustomStartDate(maskDateInput(e.target.value))}
                     className="w-40"
                   />
                 </div>
                 <div className="flex items-center gap-2">
                   <Label className="text-muted-foreground">To:</Label>
                   <Input
-                    type="date"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="dd/mm/yyyy"
                     value={customEndDate}
-                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    onChange={(e) => setCustomEndDate(maskDateInput(e.target.value))}
                     className="w-40"
                   />
                 </div>
@@ -488,11 +493,13 @@ function Commissions() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="payment_date">Payment Date</Label>
-                <Input
-                  id="payment_date"
-                  type="date"
-                  value={customPaymentDate}
-                  onChange={(e) => setCustomPaymentDate(e.target.value)}
+  <Input
+  id="payment_date"
+  type="text"
+  inputMode="numeric"
+  placeholder="dd/mm/yyyy"
+  value={customPaymentDate}
+  onChange={(e) => setCustomPaymentDate(maskDateInput(e.target.value))}
                 />
               </div>
               <div className="flex gap-2">
