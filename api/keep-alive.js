@@ -1,63 +1,80 @@
 // api/keep-alive.js
 
-import { createClient } from '@supabase/supabase-js'
-
 export default async function handler(req, res) {
   try {
-    // Debug: Check if env vars exist
-    const supabaseUrl = process.env.VITE_SUPABASE_URL
-    const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY
+    // Step 1: Check if env vars exist
+    const url = process.env.VITE_SUPABASE_URL
+    const key = process.env.VITE_SUPABASE_ANON_KEY
 
-    console.log('Environment check:')
-    console.log('Supabase URL exists:', !!supabaseUrl)
-    console.log('Supabase Key exists:', !!supabaseKey)
+    console.log('=== ENV VAR CHECK ===')
+    console.log('URL length:', url?.length || 'NOT SET')
+    console.log('Key length:', key?.length || 'NOT SET')
+    console.log('URL starts with https:', url?.startsWith('https') || false)
 
-    if (!supabaseUrl || !supabaseKey) {
+    if (!url || !key) {
       return res.status(500).json({ 
-        error: 'Missing environment variables',
-        details: 'VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY not set'
+        error: 'ENV VARS NOT SET',
+        url: url ? 'SET' : 'MISSING',
+        key: key ? 'SET' : 'MISSING'
       })
     }
 
-    // Initialize Supabase client
-    const supabase = createClient(supabaseUrl, supabaseKey)
+    // Step 2: Try to import and create Supabase client
+    console.log('=== IMPORTING SUPABASE ===')
+    const { createClient } = await import('@supabase/supabase-js')
+    console.log('Supabase imported successfully')
 
-    console.log('Attempting database query...')
+    const supabase = createClient(url, key)
+    console.log('Supabase client created successfully')
 
-    // Simple query to keep database alive
-    const { data, error } = await supabase
+    // Step 3: Try a simple query
+    console.log('=== RUNNING QUERY ===')
+    const { data, error, status } = await supabase
       .from('clients')
-      .select('count(*)', { count: 'exact', head: true })
+      .select('id')
+      .limit(1)
+
+    console.log('Query response status:', status)
+    console.log('Query error:', error)
+    console.log('Query data:', data)
 
     if (error) {
-      console.error('Supabase error object:', JSON.stringify(error))
+      console.error('=== SUPABASE ERROR ===')
+      console.error('Message:', error.message)
+      console.error('Code:', error.code)
+      console.error('Details:', error.details)
+      console.error('Hint:', error.hint)
+      
       return res.status(500).json({ 
-        error: 'Database query failed',
-        details: error.message || JSON.stringify(error),
-        errorCode: error.code
+        error: 'Query failed',
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
       })
     }
 
-    console.log(`[Keep-Alive SUCCESS] Supabase pinged at ${new Date().toISOString()}`)
-    
+    console.log('=== SUCCESS ===')
     return res.status(200).json({ 
       success: true,
-      message: 'Database keep-alive successful',
+      message: 'Keep-alive successful',
       timestamp: new Date().toISOString(),
-      clientCount: data
+      recordsFound: data?.length || 0
     })
 
   } catch (error) {
-    console.error('Keep-alive error:', error.toString())
+    console.error('=== EXCEPTION ===')
+    console.error('Error message:', error.message)
+    console.error('Error stack:', error.stack)
+    
     return res.status(500).json({ 
-      error: 'Keep-alive failed',
-      details: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      error: 'Exception occurred',
+      message: error.message,
+      type: error.constructor.name
     })
   }
 }
 
-// Vercel Cron - runs daily at 12:00 PM UTC
 export const config = {
   crons: ['0 12 * * *']
 }
