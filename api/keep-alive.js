@@ -9,8 +9,10 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' })
   }
 
-  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
-  const key = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
+  // Use the same Supabase project as the frontend. Don't read SUPABASE_URL / SUPABASE_ANON_KEY:
+  // integrations can set those to a different project, which made the keep-alive ping the wrong database.
+  const url = process.env.VITE_SUPABASE_URL
+  const key = process.env.VITE_SUPABASE_ANON_KEY
 
   if (!url || !key) {
     console.error('keep-alive: Supabase URL or anon key is not configured')
