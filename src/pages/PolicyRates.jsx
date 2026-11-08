@@ -7,92 +7,130 @@ import { Label } from '../components/ui/Label'
 import { Select } from '../components/ui/Select'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table'
 import { Badge } from '../components/ui/Badge'
+import { useToast } from '../components/ui/Toast'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import { formatDate } from '../lib/utils'
-import { Plus, AlertCircle, CheckCircle2, Percent } from 'lucide-react'
+import { formatRate, percentToRate, rateToPercent } from '../lib/commission'
+import { friendlyError } from '../lib/errors'
+import { Plus, Percent, Pencil, Trash2 } from 'lucide-react'
+
+const emptyForm = {
+  insurance_company_code: '',
+  insurance_policy_type: '',
+  commission_percent: ''
+}
 
 function PolicyRates() {
+  const toast = useToast()
+  const confirm = useConfirm()
   const [policyRates, setPolicyRates] = useState([])
   const [companies, setCompanies] = useState([])
   const [policyTypes, setPolicyTypes] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [success, setSuccess] = useState(null)
   const [showForm, setShowForm] = useState(false)
-  
-  const [formData, setFormData] = useState({
-    insurance_company_code: '',
-    insurance_policy_type: '',
-    commission_rate: ''
-  })
+  const [editingId, setEditingId] = useState(null)
+  const [formData, setFormData] = useState(emptyForm)
 
   useEffect(() => {
     fetchData()
+    // Load once when the page opens
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const fetchData = async () => {
     try {
-      const { data: companiesData, error: companiesError } = await supabase
-        .from('insurance_companies')
-        .select('code, name')
-        .order('name')
+      const [companiesResult, typesResult, ratesResult] = await Promise.all([
+        supabase.from('insurance_companies').select('code, name').order('name'),
+        supabase.from('insurance_policy_types').select('type, name').order('name'),
+        supabase
+          .from('insurance_policy_rates')
+          .select(`
+            *,
+            insurance_companies (code, name),
+            insurance_policy_types (type, name)
+          `)
+          .order('created_at', { ascending: false })
+      ])
 
-      if (companiesError) throw companiesError
-      setCompanies(companiesData || [])
-
-      const { data: typesData, error: typesError } = await supabase
-        .from('insurance_policy_types')
-        .select('type, name')
-        .order('name')
-
-      if (typesError) throw typesError
-      setPolicyTypes(typesData || [])
-
-      const { data: ratesData, error: ratesError } = await supabase
-        .from('insurance_policy_rates')
-        .select(`
-          *,
-          insurance_companies (code, name),
-          insurance_policy_types (type, name)
-        `)
-        .order('created_at', { ascending: false })
-
-      if (ratesError) throw ratesError
-      setPolicyRates(ratesData || [])
+      for (const result of [companiesResult, typesResult, ratesResult]) {
+        if (result.error) throw result.error
+      }
+      setCompanies(companiesResult.data || [])
+      setPolicyTypes(typesResult.data || [])
+      setPolicyRates(ratesResult.data || [])
     } catch (error) {
-      setError(error.message)
+      toast.error(friendlyError(error))
     } finally {
       setLoading(false)
     }
   }
 
+  const closeForm = () => {
+    setFormData(emptyForm)
+    setEditingId(null)
+    setShowForm(false)
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setError(null)
-    setSuccess(null)
+
+    const rate = percentToRate(formData.commission_percent)
+    if (rate === null || rate < 0 || rate > 1) {
+      toast.error('Enter a commission rate between 0 and 100%.')
+      return
+    }
 
     try {
-      const { error } = await supabase
-        .from('insurance_policy_rates')
-        .insert([formData])
+      const { error } = editingId
+        ? await supabase.from('insurance_policy_rates').update({ commission_rate: rate }).eq('id', editingId)
+        : await supabase.from('insurance_policy_rates').insert([{
+            insurance_company_code: formData.insurance_company_code,
+            insurance_policy_type: formData.insurance_policy_type,
+            commission_rate: rate
+          }])
 
       if (error) throw error
 
-      setSuccess('Commission rate added successfully!')
-      setFormData({
-        insurance_company_code: '',
-        insurance_policy_type: '',
-        commission_rate: ''
-      })
-      setShowForm(false)
+      toast.success(editingId
+        ? 'Rate updated. Existing policies keep the rate they were saved with.'
+        : 'Commission rate added.')
+      closeForm()
       fetchData()
-      
-      setTimeout(() => setSuccess(null), 3000)
     } catch (error) {
-      if (error.code === '23505') {
-        setError('A rate for this company and policy type combination already exists')
-      } else {
-        setError(error.message)
-      }
+      toast.error(friendlyError(error, {
+        duplicate: 'A rate for this company and policy type already exists. Edit that rate instead.'
+      }))
+    }
+  }
+
+  const startEditing = (rate) => {
+    setFormData({
+      insurance_company_code: rate.insurance_company_code,
+      insurance_policy_type: rate.insurance_policy_type,
+      commission_percent: rateToPercent(rate.commission_rate)
+    })
+    setEditingId(rate.id)
+    setShowForm(true)
+    requestAnimationFrame(() => document.getElementById('rate-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
+
+  const handleDelete = async (rate) => {
+    const ok = await confirm({
+      title: `Delete the ${rate.insurance_company_code} / ${rate.insurance_policy_type} rate?`,
+      message: 'Existing policies keep their saved rate. New policies for this combination will need a new rate or "No commission".',
+      confirmLabel: 'Delete',
+      destructive: true
+    })
+    if (!ok) return
+
+    try {
+      const { error } = await supabase.from('insurance_policy_rates').delete().eq('id', rate.id)
+      if (error) throw error
+      toast.success('Rate deleted.')
+      if (editingId === rate.id) closeForm()
+      fetchData()
+    } catch (error) {
+      toast.error(friendlyError(error))
     }
   }
 
@@ -113,38 +151,28 @@ function PolicyRates() {
 
   return (
     <div className="space-y-6">
-      {/* Alerts */}
-      {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4" />
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="flex items-center gap-2 rounded-lg border border-success/50 bg-success/10 p-4 text-sm text-success">
-          <CheckCircle2 className="h-4 w-4" />
-          {success}
-        </div>
-      )}
-
       {/* Header with Add Button */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">Commission Rate List</h2>
           <p className="text-sm text-muted-foreground">{policyRates.length} commission rates configured</p>
         </div>
-        <Button onClick={() => { setShowForm(!showForm); setError(null) }}>
+        <Button onClick={() => (showForm ? closeForm() : setShowForm(true))}>
           <Plus className="h-4 w-4" />
           Add Rate
         </Button>
       </div>
 
-      {/* Add Rate Form */}
+      {/* Add / Edit Rate Form */}
       {showForm && (
-        <Card>
+        <Card id="rate-form">
           <CardHeader>
-            <CardTitle>Add New Commission Rate</CardTitle>
-            <CardDescription>Set a commission rate for a company and policy type combination</CardDescription>
+            <CardTitle>{editingId ? 'Edit Commission Rate' : 'Add New Commission Rate'}</CardTitle>
+            <CardDescription>
+              {editingId
+                ? 'Changing a rate affects new policies only. Existing policies keep the rate they were saved with.'
+                : 'Set a commission rate for a company and policy type combination'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
@@ -155,6 +183,7 @@ function PolicyRates() {
                   name="insurance_company_code"
                   value={formData.insurance_company_code}
                   onChange={handleChange}
+                  disabled={!!editingId}
                   required
                 >
                   <option value="">Select a company</option>
@@ -173,6 +202,7 @@ function PolicyRates() {
                   name="insurance_policy_type"
                   value={formData.insurance_policy_type}
                   onChange={handleChange}
+                  disabled={!!editingId}
                   required
                 >
                   <option value="">Select a policy type</option>
@@ -185,32 +215,29 @@ function PolicyRates() {
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="commission_rate">Commission Rate (as decimal) *</Label>
-                <div className="flex items-center gap-3">
+                <Label htmlFor="commission_percent">Commission Rate (%) *</Label>
+                <div className="relative max-w-xs">
                   <Input
-                    id="commission_rate"
-                    name="commission_rate"
+                    id="commission_percent"
+                    name="commission_percent"
                     type="number"
-                    value={formData.commission_rate}
+                    inputMode="decimal"
+                    value={formData.commission_percent}
                     onChange={handleChange}
-                    step="0.0001"
+                    step="0.01"
                     min="0"
-                    max="1"
-                    placeholder="e.g., 0.15 for 15%"
-                    className="max-w-xs"
+                    max="100"
+                    placeholder="e.g., 15"
+                    className="pr-8"
                     required
                   />
-                  {formData.commission_rate && (
-                    <Badge variant="success">
-                      = {(parseFloat(formData.commission_rate) * 100).toFixed(2)}%
-                    </Badge>
-                  )}
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
                 </div>
               </div>
 
               <div className="flex gap-2 md:col-span-2">
-                <Button type="submit">Add Rate</Button>
-                <Button type="button" variant="secondary" onClick={() => { setShowForm(false); setError(null) }}>
+                <Button type="submit">{editingId ? 'Save Changes' : 'Add Rate'}</Button>
+                <Button type="button" variant="secondary" onClick={closeForm}>
                   Cancel
                 </Button>
               </div>
@@ -235,6 +262,7 @@ function PolicyRates() {
               <TableHead>Policy Type</TableHead>
               <TableHead>Commission Rate</TableHead>
               <TableHead>Added</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -257,12 +285,20 @@ function PolicyRates() {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="success">
-                    {(parseFloat(rate.commission_rate) * 100).toFixed(2)}%
-                  </Badge>
+                  <Badge variant="success">{formatRate(rate.commission_rate)}</Badge>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {formatDate(rate.created_at)}
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-1">
+                    <Button variant="ghost" size="icon" aria-label="Edit rate" onClick={() => startEditing(rate)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" aria-label="Delete rate" onClick={() => handleDelete(rate)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

@@ -5,27 +5,34 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Label } from '../components/ui/Label'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table'
+import { useToast } from '../components/ui/Toast'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import { formatDate } from '../lib/utils'
-import { Plus, AlertCircle, CheckCircle2, Building2 } from 'lucide-react'
+import { friendlyError } from '../lib/errors'
+import { Plus, Building2, Pencil, Trash2 } from 'lucide-react'
+
+const emptyForm = {
+  code: '',
+  name: '',
+  address: '',
+  manager_name: '',
+  manager_email: '',
+  manager_phone: ''
+}
 
 function Companies() {
+  const toast = useToast()
+  const confirm = useConfirm()
   const [companies, setCompanies] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [success, setSuccess] = useState(null)
   const [showForm, setShowForm] = useState(false)
-  
-  const [formData, setFormData] = useState({
-    code: '',
-    name: '',
-    address: '',
-    manager_name: '',
-    manager_email: '',
-    manager_phone: ''
-  })
+  const [editingCode, setEditingCode] = useState(null)
+  const [formData, setFormData] = useState(emptyForm)
 
   useEffect(() => {
     fetchCompanies()
+    // Load once when the page opens
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const fetchCompanies = async () => {
@@ -38,51 +45,76 @@ function Companies() {
       if (error) throw error
       setCompanies(data || [])
     } catch (error) {
-      setError(error.message)
+      toast.error(friendlyError(error))
     } finally {
       setLoading(false)
     }
   }
 
+  const closeForm = () => {
+    setFormData(emptyForm)
+    setEditingCode(null)
+    setShowForm(false)
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setError(null)
-    setSuccess(null)
 
-    if (formData.code.length !== 3) {
-      setError('Code must be exactly 3 characters')
+    const code = formData.code.trim().toUpperCase()
+    if (code.length !== 3) {
+      toast.error('Code must be exactly 3 characters.')
       return
     }
 
     try {
-      const { error } = await supabase
-        .from('insurance_companies')
-        .insert([{
-          ...formData,
-          code: formData.code.toUpperCase()
-        }])
+      const { code: _code, ...details } = formData
+      const { error } = editingCode
+        ? await supabase.from('insurance_companies').update(details).eq('code', editingCode)
+        : await supabase.from('insurance_companies').insert([{ ...formData, code }])
 
       if (error) throw error
 
-      setSuccess('Insurance company added successfully!')
-      setFormData({
-        code: '',
-        name: '',
-        address: '',
-        manager_name: '',
-        manager_email: '',
-        manager_phone: ''
-      })
-      setShowForm(false)
+      toast.success(editingCode ? 'Company updated.' : 'Insurance company added.')
+      closeForm()
       fetchCompanies()
-      
-      setTimeout(() => setSuccess(null), 3000)
     } catch (error) {
-      if (error.code === '23505') {
-        setError('A company with this code already exists')
-      } else {
-        setError(error.message)
-      }
+      toast.error(friendlyError(error, { duplicate: 'A company with this code already exists.' }))
+    }
+  }
+
+  const startEditing = (company) => {
+    setFormData({
+      code: company.code,
+      name: company.name || '',
+      address: company.address || '',
+      manager_name: company.manager_name || '',
+      manager_email: company.manager_email || '',
+      manager_phone: company.manager_phone || ''
+    })
+    setEditingCode(company.code)
+    setShowForm(true)
+    requestAnimationFrame(() => document.getElementById('company-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
+
+  const handleDelete = async (company) => {
+    const ok = await confirm({
+      title: `Delete ${company.code} - ${company.name}?`,
+      message: 'Its commission rates are deleted too. Companies that have policies cannot be deleted.',
+      confirmLabel: 'Delete',
+      destructive: true
+    })
+    if (!ok) return
+
+    try {
+      const { error } = await supabase.from('insurance_companies').delete().eq('code', company.code)
+      if (error) throw error
+      toast.success('Company deleted.')
+      if (editingCode === company.code) closeForm()
+      fetchCompanies()
+    } catch (error) {
+      toast.error(friendlyError(error, {
+        inUse: `${company.code} has policies, so it cannot be deleted. Delete or move those policies first.`
+      }))
     }
   }
 
@@ -103,38 +135,26 @@ function Companies() {
 
   return (
     <div className="space-y-6">
-      {/* Alerts */}
-      {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4" />
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="flex items-center gap-2 rounded-lg border border-success/50 bg-success/10 p-4 text-sm text-success">
-          <CheckCircle2 className="h-4 w-4" />
-          {success}
-        </div>
-      )}
-
       {/* Header with Add Button */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">Company List</h2>
           <p className="text-sm text-muted-foreground">{companies.length} insurance companies</p>
         </div>
-        <Button onClick={() => { setShowForm(!showForm); setError(null) }}>
+        <Button onClick={() => (showForm ? closeForm() : setShowForm(true))}>
           <Plus className="h-4 w-4" />
           Add Company
         </Button>
       </div>
 
-      {/* Add Company Form */}
+      {/* Add / Edit Company Form */}
       {showForm && (
-        <Card>
+        <Card id="company-form">
           <CardHeader>
-            <CardTitle>Add New Insurance Company</CardTitle>
-            <CardDescription>Enter the company&apos;s information below</CardDescription>
+            <CardTitle>{editingCode ? `Edit ${editingCode}` : 'Add New Insurance Company'}</CardTitle>
+            <CardDescription>
+              {editingCode ? 'The code cannot be changed because policies refer to it.' : 'Enter the company’s information below'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
@@ -148,6 +168,7 @@ function Companies() {
                   maxLength="3"
                   className="uppercase"
                   placeholder="e.g., AXA"
+                  disabled={!!editingCode}
                   required
                 />
               </div>
@@ -208,8 +229,8 @@ function Companies() {
               </div>
 
               <div className="flex gap-2 md:col-span-2">
-                <Button type="submit">Add Company</Button>
-                <Button type="button" variant="secondary" onClick={() => { setShowForm(false); setError(null) }}>
+                <Button type="submit">{editingCode ? 'Save Changes' : 'Add Company'}</Button>
+                <Button type="button" variant="secondary" onClick={closeForm}>
                   Cancel
                 </Button>
               </div>
@@ -235,6 +256,7 @@ function Companies() {
               <TableHead>Manager</TableHead>
               <TableHead>Contact</TableHead>
               <TableHead>Added</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -260,6 +282,16 @@ function Companies() {
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {formatDate(company.created_at)}
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-1">
+                    <Button variant="ghost" size="icon" aria-label={`Edit ${company.code}`} onClick={() => startEditing(company)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" aria-label={`Delete ${company.code}`} onClick={() => handleDelete(company)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

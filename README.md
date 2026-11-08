@@ -107,6 +107,15 @@ npm run dev
 
 The app will be available at `http://localhost:5173`
 
+### 5. Tests and Linting
+
+```bash
+npm test
+npm run lint
+```
+
+Tests (Vitest) cover the commission calculation, date helpers, CSV export and routing in `src/lib/*.test.js`.
+
 ## Deployment to Vercel
 
 See `DEPLOYMENT.md` for detailed step-by-step deployment instructions.
@@ -180,8 +189,17 @@ When you create a policy:
 
 - Each combination of company and policy type can have a unique rate
 - Rates are stored separately for easy updates
+- Rates are entered as percentages (e.g. `15` for 15%) and can be edited or deleted
 - When creating a policy, the current rate is copied to the policy record
-- This ensures historical accuracy even if rates change later
+- This ensures historical accuracy even if rates change later; editing a policy keeps its saved rate unless you choose "Use current rate"
+
+### Working With Lists
+
+- Clients, policies and commissions can be searched and sorted by clicking column headers
+- The policy count on a client opens that client's policies
+- Commissions can be exported to CSV (opens in Excel) and marked as paid in bulk
+- The Overview page lists policies due for renewal in the next 30 days
+- Every page has its own URL (e.g. `#/policies?client=12`), so refresh and the back button work
 
 ### Flexible Client Information
 
@@ -194,10 +212,8 @@ When you create a policy:
 Ideas for improvements:
 - 📧 Email notifications for upcoming policy renewals
 - 📊 Advanced charts and analytics
-- 📄 Export reports to PDF/Excel
-- 🔍 Advanced search and filtering
+- 📄 Export reports to PDF
 - 📅 Calendar view for policy dates
-- 🔔 Renewal reminders
 - 📈 Revenue forecasting
 - 🎯 Sales targets and goals
 - 👥 Multi-user support with role-based access

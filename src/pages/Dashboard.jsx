@@ -1,40 +1,42 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card'
+import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
-import { Select } from '../components/ui/Select'
-import { Label } from '../components/ui/Label'
-import { formatAmount, getYears, matchesPeriod } from '../lib/utils'
-import { Users, FileText, DollarSign, TrendingUp, Clock, CheckCircle2, Lightbulb, BookOpen, AlertCircle } from 'lucide-react'
+import { PeriodFilter } from '../components/PeriodFilter'
+import { usePeriodFilter } from '../hooks/usePeriodFilter'
+import { daysUntil, formatAmount, formatDate } from '../lib/utils'
+import { commissionTotals } from '../lib/commission'
+import { friendlyError } from '../lib/errors'
+import { Users, FileText, TrendingUp, Clock, CheckCircle2, Lightbulb, BookOpen, AlertCircle, CalendarClock } from 'lucide-react'
 
-function Dashboard() {
+// Renewal list: policies ending in the next 30 days, plus those that ended in the last 14
+const RENEWAL_AHEAD_DAYS = 30
+const RENEWAL_BEHIND_DAYS = 14
+
+function Dashboard({ navigate }) {
   const [clientCount, setClientCount] = useState(0)
   const [policies, setPolicies] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [dateFilterType, setDateFilterType] = useState('all')
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
 
-  const availableYears = getYears(policies, 'start_date')
+  const period = usePeriodFilter(policies, 'start_date')
 
-  // Load once; changing the period only re-filters the data already loaded
   useEffect(() => {
     fetchStats()
   }, [])
-
-  // Default the year filter to a year that has data (the current year may have none yet)
-  useEffect(() => {
-    if (availableYears.length > 0 && !availableYears.includes(selectedYear)) {
-      setSelectedYear(availableYears[0])
-    }
-  }, [policies])
 
   const fetchStats = async () => {
     try {
       const [clientsResult, policiesResult] = await Promise.all([
         supabase.from('clients').select('*', { count: 'exact', head: true }),
-        supabase.from('client_policies').select('commission_amount, payment_status, start_date')
+        supabase
+          .from('client_policies')
+          .select(`
+            id, client_id, commission_amount, payment_status, start_date, end_date,
+            policy_number, insurance_company_code, insurance_policy_type,
+            clients (first_name, last_name, phone_number)
+          `)
       ])
 
       if (clientsResult.error) throw clientsResult.error
@@ -45,26 +47,25 @@ function Dashboard() {
       setError(null)
     } catch (error) {
       console.error('Error fetching stats:', error)
-      setError(error.message || 'Could not load dashboard data.')
+      setError(friendlyError(error))
     } finally {
       setLoading(false)
     }
   }
 
-  const sumCommission = (rows) => rows.reduce((sum, p) => sum + (parseFloat(p.commission_amount) || 0), 0)
-  const filteredPolicies = policies.filter(p => matchesPeriod(p.start_date, dateFilterType, selectedYear, selectedMonth))
+  const totals = commissionTotals(policies.filter(period.matches))
   const stats = {
     totalClients: clientCount,
-    totalPolicies: filteredPolicies.length,
-    totalCommissions: sumCommission(filteredPolicies),
-    paidCommissions: sumCommission(filteredPolicies.filter(p => p.payment_status === 'paid')),
-    pendingCommissions: sumCommission(filteredPolicies.filter(p => p.payment_status === 'pending'))
+    totalPolicies: totals.count,
+    totalCommissions: totals.total,
+    paidCommissions: totals.paid,
+    pendingCommissions: totals.pending
   }
 
-  const months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ]
+  const renewals = policies
+    .map((p) => ({ ...p, daysLeft: p.end_date ? daysUntil(p.end_date) : null }))
+    .filter((p) => p.daysLeft !== null && p.daysLeft <= RENEWAL_AHEAD_DAYS && p.daysLeft >= -RENEWAL_BEHIND_DAYS)
+    .sort((a, b) => a.daysLeft - b.daysLeft)
 
   if (loading) {
     return (
@@ -87,70 +88,10 @@ function Dashboard() {
       <Card>
         <CardHeader className="pb-4">
           <CardTitle className="text-base font-medium">Commission Period</CardTitle>
-          <CardDescription>Filter statistics by time period</CardDescription>
+          <CardDescription>Filter statistics by policy start date</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="flex gap-2">
-              {['all', 'year', 'month'].map((filter) => (
-                <Button
-                  key={filter}
-                  variant={dateFilterType === filter ? 'default' : 'secondary'}
-                  size="sm"
-                  onClick={() => setDateFilterType(filter)}
-                >
-                  {filter === 'all' ? 'All Time' : filter === 'year' ? 'By Year' : 'By Month'}
-                </Button>
-              ))}
-            </div>
-            
-            {dateFilterType === 'year' && availableYears.length > 0 && (
-              <div className="flex items-center gap-2">
-                <Label htmlFor="year-select" className="text-muted-foreground">Year:</Label>
-                <Select
-                  id="year-select"
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                  className="w-32"
-                >
-                  {availableYears.map(year => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </Select>
-              </div>
-            )}
-            
-            {dateFilterType === 'month' && availableYears.length > 0 && (
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="month-year-select" className="text-muted-foreground">Year:</Label>
-                  <Select
-                    id="month-year-select"
-                    value={selectedYear}
-                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                    className="w-32"
-                  >
-                    {availableYears.map(year => (
-                      <option key={year} value={year}>{year}</option>
-                    ))}
-                  </Select>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="month-select" className="text-muted-foreground">Month:</Label>
-                  <Select
-                    id="month-select"
-                    value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                    className="w-36"
-                  >
-                    {months.map((month, idx) => (
-                      <option key={idx + 1} value={idx + 1}>{month}</option>
-                    ))}
-                  </Select>
-                </div>
-              </div>
-            )}
-          </div>
+          <PeriodFilter filter={period} />
         </CardContent>
       </Card>
 
@@ -226,6 +167,52 @@ function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Renewal reminders */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <CalendarClock className="h-5 w-5 text-warning" />
+            <CardTitle>Upcoming Renewals</CardTitle>
+          </div>
+          <CardDescription>
+            Policies ending in the next {RENEWAL_AHEAD_DAYS} days, or that ended in the last {RENEWAL_BEHIND_DAYS} days
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {renewals.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No policies are due for renewal.</p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {renewals.map((p) => (
+                <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
+                  <div className="min-w-0">
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0 font-medium text-foreground"
+                      onClick={() => navigate('policies', { client: p.client_id })}
+                    >
+                      {p.clients?.first_name} {p.clients?.last_name}
+                    </Button>
+                    <div className="text-xs text-muted-foreground">
+                      {p.insurance_company_code} · {p.insurance_policy_type}
+                      {p.policy_number && ` · #${p.policy_number}`}
+                      {p.clients?.phone_number && ` · ${p.clients.phone_number}`}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">{formatDate(p.end_date)}</span>
+                    <Badge variant={p.daysLeft < 0 ? 'error' : p.daysLeft <= 7 ? 'warning' : 'secondary'}>
+                      {p.daysLeft < 0 ? `Ended ${-p.daysLeft}d ago` : p.daysLeft === 0 ? 'Ends today' : `${p.daysLeft}d left`}
+                    </Badge>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Info Cards */}
       <div className="grid gap-6 lg:grid-cols-2">

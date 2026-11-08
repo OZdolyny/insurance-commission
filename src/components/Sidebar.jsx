@@ -8,8 +8,10 @@ import {
   Percent,
   ChevronLeft,
   ChevronRight,
+  X,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { buildHash } from '../lib/router'
 
 const navItems = [
   { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
@@ -21,76 +23,92 @@ const navItems = [
   { id: 'policy-rates', label: 'Rates', icon: Percent },
 ]
 
-export function Sidebar({ currentPage, setCurrentPage, collapsed, setCollapsed }) {
+// On desktop: fixed side panel that can collapse to icons.
+// On phones (< md): hidden drawer that slides in from the left.
+export function Sidebar({ currentPage, collapsed, setCollapsed, mobileOpen, onMobileClose }) {
+  // The collapsed (icons-only) look only applies on desktop
+  const compact = collapsed && !mobileOpen
+
   return (
-    <aside
-      className={cn(
-        'fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-sidebar-border bg-sidebar transition-all duration-300',
-        collapsed ? 'w-16' : 'w-64'
+    <>
+      {mobileOpen && (
+        <div className="fixed inset-0 z-40 bg-black/60 md:hidden" onClick={onMobileClose} aria-hidden="true" />
       )}
-    >
-      {/* Header */}
-      <div className={cn(
-        'flex h-16 items-center border-b border-sidebar-border px-4',
-        collapsed ? 'justify-center' : 'justify-between'
-      )}>
-        {!collapsed && (
+
+      <aside
+        className={cn(
+          'fixed left-0 top-0 z-50 flex h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar transition-all duration-300',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+          'md:z-40 md:translate-x-0',
+          collapsed ? 'md:w-16' : 'md:w-64'
+        )}
+      >
+        {/* Header */}
+        <div className={cn(
+          'flex h-16 items-center border-b border-sidebar-border px-4',
+          compact ? 'md:justify-center' : 'justify-between'
+        )}>
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground">
               <DollarSign className="h-5 w-5 text-background" />
             </div>
-            <span className="font-semibold text-sidebar-foreground">CommissionPro</span>
+            <span className={cn('font-semibold text-sidebar-foreground', compact && 'md:hidden')}>CommissionPro</span>
           </div>
-        )}
-        {collapsed && (
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground">
-            <DollarSign className="h-5 w-5 text-background" />
-          </div>
-        )}
-      </div>
+          <button
+            type="button"
+            aria-label="Close menu"
+            onClick={onMobileClose}
+            className="rounded-lg p-2 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground md:hidden"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 space-y-1 p-2">
-        {navItems.map((item) => {
-          const Icon = item.icon
-          const isActive = currentPage === item.id
-          
-          return (
-            <button
-              key={item.id}
-              onClick={() => setCurrentPage(item.id)}
-              className={cn(
-                'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                  : 'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                collapsed && 'justify-center px-2'
-              )}
-              title={collapsed ? item.label : undefined}
-            >
-              <Icon className={cn('h-5 w-5 shrink-0', isActive && 'text-foreground')} />
-              {!collapsed && <span>{item.label}</span>}
-            </button>
-          )
-        })}
-      </nav>
+        {/* Navigation */}
+        <nav className="flex-1 space-y-1 overflow-y-auto p-2">
+          {navItems.map((item) => {
+            const Icon = item.icon
+            const isActive = currentPage === item.id
 
-      {/* Collapse Toggle */}
-      <div className="border-t border-sidebar-border p-2">
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-        >
-          {collapsed ? (
-            <ChevronRight className="h-5 w-5" />
-          ) : (
-            <>
-              <ChevronLeft className="h-5 w-5" />
-              <span>Collapse</span>
-            </>
-          )}
-        </button>
-      </div>
-    </aside>
+            return (
+              <a
+                key={item.id}
+                href={buildHash(item.id)}
+                aria-current={isActive ? 'page' : undefined}
+                className={cn(
+                  'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                    : 'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                  compact && 'md:justify-center md:px-2'
+                )}
+                title={compact ? item.label : undefined}
+              >
+                <Icon className={cn('h-5 w-5 shrink-0', isActive && 'text-foreground')} />
+                <span className={cn(compact && 'md:hidden')}>{item.label}</span>
+              </a>
+            )
+          })}
+        </nav>
+
+        {/* Collapse toggle (desktop only) */}
+        <div className="hidden border-t border-sidebar-border p-2 md:block">
+          <button
+            type="button"
+            onClick={() => setCollapsed(!collapsed)}
+            className="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          >
+            {collapsed ? (
+              <ChevronRight className="h-5 w-5" />
+            ) : (
+              <>
+                <ChevronLeft className="h-5 w-5" />
+                <span>Collapse</span>
+              </>
+            )}
+          </button>
+        </div>
+      </aside>
+    </>
   )
 }

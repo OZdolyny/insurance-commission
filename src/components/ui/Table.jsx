@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronUp, ChevronsUpDown } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
 export function Table({ className, children, ...props }) {
@@ -50,6 +51,27 @@ export function TableHead({ className, children, ...props }) {
       {...props}
     >
       {children}
+    </th>
+  )
+}
+
+// Column header that sorts the table when clicked. `sort` and `onSort` come from useTableControls.
+export function SortableTableHead({ sortKey, sort, onSort, className, children }) {
+  const active = sort?.key === sortKey
+  const Icon = !active ? ChevronsUpDown : sort.dir === 'asc' ? ChevronUp : ChevronDown
+  return (
+    <th
+      className={cn('h-12 px-4 text-left align-middle font-medium text-muted-foreground', className)}
+      aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={cn('inline-flex items-center gap-1 hover:text-foreground', active && 'text-foreground')}
+      >
+        {children}
+        <Icon className="h-3.5 w-3.5" />
+      </button>
     </th>
   )
 }

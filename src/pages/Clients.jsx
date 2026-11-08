@@ -4,44 +4,65 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Label } from '../components/ui/Label'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table'
+import { SearchInput } from '../components/ui/SearchInput'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, SortableTableHead } from '../components/ui/Table'
+import { useToast } from '../components/ui/Toast'
+import { useTableControls } from '../hooks/useTableControls'
 import { formatDate, formatPhoneNumber } from '../lib/utils'
-import { Plus, AlertCircle, CheckCircle2, Pencil } from 'lucide-react'
+import { friendlyError } from '../lib/errors'
+import { Plus, Pencil, FileText } from 'lucide-react'
 
-function Clients() {
+const emptyForm = {
+  first_name: '',
+  last_name: '',
+  father_name: '',
+  phone_number: '',
+  email: '',
+  comment: ''
+}
+
+const policyCount = (client) => client.client_policies?.[0]?.count ?? 0
+
+const sorters = {
+  id: (c) => c.id,
+  name: (c) => `${c.first_name} ${c.last_name}`,
+  phone: (c) => c.phone_number,
+  email: (c) => c.email,
+  policies: policyCount,
+  added: (c) => c.created_at,
+}
+
+function Clients({ navigate }) {
+  const toast = useToast()
   const [clients, setClients] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [success, setSuccess] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [editingClientId, setEditingClientId] = useState(null)
-
-  const emptyForm = {
-    first_name: '',
-    last_name: '',
-    father_name: '',
-    phone_number: '',
-    email: '',
-    comment: ''
-  }
-
   const [formData, setFormData] = useState(emptyForm)
+
+  const table = useTableControls(clients, {
+    searchText: (c) => [c.first_name, c.last_name, c.father_name, c.phone_number, c.email, c.comment].join(' '),
+    sorters,
+    defaultSort: { key: 'added', dir: 'desc' },
+  })
 
   useEffect(() => {
     fetchClients()
+    // Load once when the page opens
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const fetchClients = async () => {
     try {
       const { data, error } = await supabase
         .from('clients')
-        .select('*')
+        .select('*, client_policies(count)')
         .order('created_at', { ascending: false })
 
       if (error) throw error
       setClients(data || [])
     } catch (error) {
-      setError(error.message)
+      toast.error(friendlyError(error))
     } finally {
       setLoading(false)
     }
@@ -49,26 +70,19 @@ function Clients() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setError(null)
-    setSuccess(null)
 
     try {
-      const query = editingClientId
-        ? supabase.from('clients').update(formData).eq('id', editingClientId)
-        : supabase.from('clients').insert([formData])
-      const { error } = await query
+      const { error } = editingClientId
+        ? await supabase.from('clients').update(formData).eq('id', editingClientId)
+        : await supabase.from('clients').insert([formData])
 
       if (error) throw error
 
-      setSuccess(editingClientId ? 'Client updated successfully!' : 'Client added successfully!')
-      setFormData(emptyForm)
-      setEditingClientId(null)
-      setShowForm(false)
+      toast.success(editingClientId ? 'Client updated.' : 'Client added.')
+      cancelForm()
       fetchClients()
-
-      setTimeout(() => setSuccess(null), 3000)
     } catch (error) {
-      setError(error.message)
+      toast.error(friendlyError(error))
     }
   }
 
@@ -95,7 +109,6 @@ function Clients() {
   }
 
   const cancelForm = () => {
-    setError(null)
     setFormData(emptyForm)
     setEditingClientId(null)
     setShowForm(false)
@@ -109,40 +122,33 @@ function Clients() {
     )
   }
 
+  const sortProps = { sort: table.sort, onSort: table.toggleSort }
+
   return (
     <div className="space-y-6">
-      {/* Alerts */}
-      {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4" />
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="flex items-center gap-2 rounded-lg border border-success/50 bg-success/10 p-4 text-sm text-success">
-          <CheckCircle2 className="h-4 w-4" />
-          {success}
-        </div>
-      )}
-
       {/* Header with Add Button */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">Client List</h2>
-          <p className="text-sm text-muted-foreground">{clients.length} total clients</p>
+          <p className="text-sm text-muted-foreground">
+            {table.query ? `${table.rows.length} of ${clients.length} clients` : `${clients.length} total clients`}
+          </p>
         </div>
-        <Button onClick={() => (showForm ? cancelForm() : setShowForm(true))}>
-          <Plus className="h-4 w-4" />
-          Add Client
-        </Button>
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+          <SearchInput value={table.query} onChange={table.setQuery} placeholder="Search clients" />
+          <Button onClick={() => (showForm ? cancelForm() : setShowForm(true))}>
+            <Plus className="h-4 w-4" />
+            Add Client
+          </Button>
+        </div>
       </div>
 
       {/* Add Client Form */}
       {showForm && (
-          <Card id="client-edit-form">
-            <CardHeader>
-              <CardTitle>{editingClientId ? 'Edit Client' : 'Add New Client'}</CardTitle>
-            <CardDescription>{editingClientId ? 'Update the client&apos;s information below' : 'Enter the client&apos;s information below'}</CardDescription>
+        <Card id="client-edit-form">
+          <CardHeader>
+            <CardTitle>{editingClientId ? 'Edit Client' : 'Add New Client'}</CardTitle>
+            <CardDescription>{editingClientId ? 'Update the client’s information below' : 'Enter the client’s information below'}</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
@@ -232,30 +238,49 @@ function Clients() {
             <p className="text-muted-foreground">No clients yet. Add your first client above!</p>
           </CardContent>
         </Card>
+      ) : table.rows.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <p className="text-muted-foreground">No clients match &ldquo;{table.query}&rdquo;.</p>
+          </CardContent>
+        </Card>
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ID</TableHead>
-              <TableHead>Name</TableHead>
+              <SortableTableHead sortKey="id" {...sortProps}>ID</SortableTableHead>
+              <SortableTableHead sortKey="name" {...sortProps}>Name</SortableTableHead>
               <TableHead>Father Name</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Email</TableHead>
+              <SortableTableHead sortKey="phone" {...sortProps}>Phone</SortableTableHead>
+              <SortableTableHead sortKey="email" {...sortProps}>Email</SortableTableHead>
               <TableHead>Comment</TableHead>
-              <TableHead>Added</TableHead>
+              <SortableTableHead sortKey="policies" {...sortProps}>Policies</SortableTableHead>
+              <SortableTableHead sortKey="added" {...sortProps}>Added</SortableTableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {clients.map((client) => (
+            {table.rows.map((client) => (
               <TableRow key={client.id}>
                 <TableCell className="font-mono text-muted-foreground">{client.id}</TableCell>
                 <TableCell className="font-medium">{client.first_name} {client.last_name}</TableCell>
                 <TableCell className="text-muted-foreground">{client.father_name || '-'}</TableCell>
-                <TableCell>{client.phone_number || '-'}</TableCell>
+                <TableCell className="whitespace-nowrap">{client.phone_number || '-'}</TableCell>
                 <TableCell className="text-muted-foreground">{client.email || '-'}</TableCell>
                 <TableCell className="max-w-[240px] truncate text-muted-foreground" title={client.comment || undefined}>
                   {client.comment || '-'}
+                </TableCell>
+                <TableCell>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto px-0"
+                    aria-label={`View policies of ${client.first_name} ${client.last_name}`}
+                    onClick={() => navigate('policies', { client: client.id })}
+                  >
+                    <FileText className="h-4 w-4" />
+                    {policyCount(client)}
+                  </Button>
                 </TableCell>
                 <TableCell className="text-muted-foreground">{formatDate(client.created_at)}</TableCell>
                 <TableCell className="text-right">

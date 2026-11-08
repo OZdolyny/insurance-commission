@@ -4,6 +4,11 @@ export function cn(...inputs) {
   return clsx(inputs)
 }
 
+export const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+]
+
 // Parse a value into a Date. Date-only strings (yyyy-mm-dd, as stored by the database) are read
 // as local midnight; new Date('yyyy-mm-dd') would read them as UTC and can shift the day.
 export function parseLocalDate(value) {

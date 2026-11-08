@@ -6,42 +6,71 @@ import { Input } from '../components/ui/Input'
 import { Label } from '../components/ui/Label'
 import { Select } from '../components/ui/Select'
 import { Badge } from '../components/ui/Badge'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table'
+import { SearchInput } from '../components/ui/SearchInput'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, SortableTableHead } from '../components/ui/Table'
+import { useToast } from '../components/ui/Toast'
+import { useConfirm } from '../components/ui/ConfirmDialog'
+import { useTableControls } from '../hooks/useTableControls'
 import { daysUntil, formatAmount, formatDate, formatDateInput, maskDateInput, parseDateInput } from '../lib/utils'
-import { Plus, AlertCircle, CheckCircle2, FileText, Pencil, Trash2 } from 'lucide-react'
+import { calculateCommission, formatRate } from '../lib/commission'
+import { friendlyError } from '../lib/errors'
+import { Plus, AlertCircle, FileText, Pencil, Trash2, X } from 'lucide-react'
 
-function Policies() {
+const emptyForm = {
+  client_id: '',
+  insurance_company_code: '',
+  insurance_policy_type: '',
+  amount: '',
+  paid_amount: '',
+  start_date: '',
+  end_date: '',
+  policy_number: '',
+  comment: '',
+  no_commission: false
+}
+
+const EXPIRY_FILTERS = [
+  { value: 'all', label: 'All' },
+  { value: 'expiring-30', label: 'Expiring in 30 days', maxDays: 30 },
+  { value: 'expiring-60', label: 'Expiring in 60 days', maxDays: 60 },
+  { value: 'expiring-90', label: 'Expiring in 90 days', maxDays: 90 },
+  { value: 'expired', label: 'Expired' },
+]
+
+const clientName = (p) => `${p.clients?.first_name || ''} ${p.clients?.last_name || ''}`.trim()
+
+const sorters = {
+  client: clientName,
+  company: (p) => p.insurance_company_code,
+  type: (p) => p.insurance_policy_type,
+  amount: (p) => parseFloat(p.amount),
+  commission: (p) => parseFloat(p.commission_amount),
+  start: (p) => p.start_date,
+  end: (p) => p.end_date,
+}
+
+function Policies({ params = {}, navigate }) {
+  const toast = useToast()
+  const confirm = useConfirm()
+  const clientFilter = params.client ? Number(params.client) : null
+
   const [policies, setPolicies] = useState([])
   const [clients, setClients] = useState([])
   const [companies, setCompanies] = useState([])
   const [policyTypes, setPolicyTypes] = useState([])
   const [policyRates, setPolicyRates] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [success, setSuccess] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [expirationFilter, setExpirationFilter] = useState('all')
-  
-  const [formData, setFormData] = useState({
-    client_id: '',
-    insurance_company_code: '',
-    insurance_policy_type: '',
-    amount: '',
-    paid_amount: '',
-    start_date: '',
-    end_date: '',
-    policy_number: '',
-    comment: '',
-    no_commission: false
-  })
-
-  const [selectedRate, setSelectedRate] = useState(null)
+  const [formData, setFormData] = useState(emptyForm)
   // Rate the policy being edited was saved with, so editing keeps it instead of picking up today's rate
   const [originalRate, setOriginalRate] = useState(null)
 
   useEffect(() => {
     fetchData()
+    // Load once when the page opens
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const currentTableRate = policyRates.find(
@@ -49,148 +78,124 @@ function Policies() {
          r.insurance_policy_type === formData.insurance_policy_type
   ) || null
 
-  useEffect(() => {
-    if (!formData.insurance_company_code || !formData.insurance_policy_type) {
-      setSelectedRate(null)
-      return
-    }
-    const sameCombination = originalRate &&
-      originalRate.insurance_company_code === formData.insurance_company_code &&
-      originalRate.insurance_policy_type === formData.insurance_policy_type
-    setSelectedRate(sameCombination ? originalRate : currentTableRate)
-  }, [formData.insurance_company_code, formData.insurance_policy_type, policyRates, originalRate])
+  const keepsOriginalRate = !!originalRate &&
+    originalRate.insurance_company_code === formData.insurance_company_code &&
+    originalRate.insurance_policy_type === formData.insurance_policy_type
+
+  const selectedRate = !formData.insurance_company_code || !formData.insurance_policy_type
+    ? null
+    : keepsOriginalRate ? originalRate : currentTableRate
 
   const fetchData = async () => {
     try {
-      const { data: clientsData, error: clientsError } = await supabase
-        .from('clients')
-        .select('id, first_name, last_name')
-        .order('first_name')
+      const results = await Promise.all([
+        supabase.from('clients').select('id, first_name, last_name').order('first_name'),
+        supabase.from('insurance_companies').select('code, name').order('name'),
+        supabase.from('insurance_policy_types').select('type, name').order('name'),
+        supabase.from('insurance_policy_rates').select('*'),
+        supabase
+          .from('client_policies')
+          .select(`
+            *,
+            clients (id, first_name, last_name),
+            insurance_companies (code, name),
+            insurance_policy_types (type, name)
+          `)
+          .order('created_at', { ascending: false })
+      ])
 
-      if (clientsError) throw clientsError
-      setClients(clientsData || [])
+      const failed = results.find((result) => result.error)
+      if (failed) throw failed.error
 
-      const { data: companiesData, error: companiesError } = await supabase
-        .from('insurance_companies')
-        .select('code, name')
-        .order('name')
-
-      if (companiesError) throw companiesError
-      setCompanies(companiesData || [])
-
-      const { data: typesData, error: typesError } = await supabase
-        .from('insurance_policy_types')
-        .select('type, name')
-        .order('name')
-
-      if (typesError) throw typesError
-      setPolicyTypes(typesData || [])
-
-      const { data: ratesData, error: ratesError } = await supabase
-        .from('insurance_policy_rates')
-        .select('*')
-
-      if (ratesError) throw ratesError
-      setPolicyRates(ratesData || [])
-
-      const { data: policiesData, error: policiesError } = await supabase
-        .from('client_policies')
-        .select(`
-          *,
-          clients (id, first_name, last_name),
-          insurance_companies (code, name),
-          insurance_policy_types (type, name)
-        `)
-        .order('created_at', { ascending: false })
-
-      if (policiesError) throw policiesError
-      setPolicies(policiesData || [])
+      const [clientsResult, companiesResult, typesResult, ratesResult, policiesResult] = results
+      setClients(clientsResult.data || [])
+      setCompanies(companiesResult.data || [])
+      setPolicyTypes(typesResult.data || [])
+      setPolicyRates(ratesResult.data || [])
+      setPolicies(policiesResult.data || [])
     } catch (error) {
-      setError(error.message)
+      toast.error(friendlyError(error))
     } finally {
       setLoading(false)
     }
   }
 
+  const commission = calculateCommission({
+    amount: formData.amount,
+    paidAmount: formData.paid_amount,
+    rate: selectedRate?.commission_rate,
+    noCommission: formData.no_commission
+  })
+
+  const paidTooHigh = formData.amount !== '' && formData.paid_amount !== '' &&
+    parseFloat(formData.paid_amount) > parseFloat(formData.amount)
+
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setError(null)
-    setSuccess(null)
 
     if (!selectedRate && !formData.no_commission) {
-      setError('No commission rate found for this company and policy type combination. Please add a rate first or check "No Commission".')
+      toast.error('No commission rate exists for this company and policy type. Add a rate first or tick "No commission".')
       return
     }
 
     const startDate = parseDateInput(formData.start_date)
     if (!startDate) {
-      setError('Start date is not a valid date. Use dd/mm/yyyy.')
+      toast.error('Start date is not a valid date. Use dd/mm/yyyy.')
       return
     }
 
     const endDate = formData.end_date ? parseDateInput(formData.end_date) : null
     if (formData.end_date && !endDate) {
-      setError('End date is not a valid date. Use dd/mm/yyyy, or leave it empty.')
+      toast.error('End date is not a valid date. Use dd/mm/yyyy, or leave it empty.')
       return
     }
     if (endDate && endDate < startDate) {
-      setError('End date cannot be before the start date.')
+      toast.error('End date cannot be before the start date.')
       return
     }
 
-    if (parseFloat(formData.paid_amount) > parseFloat(formData.amount)) {
-      setError('Paid amount cannot be more than the policy amount.')
+    if (paidTooHigh) {
+      toast.error('Paid amount cannot be more than the policy amount.')
       return
+    }
+
+    const policyData = {
+      client_id: parseInt(formData.client_id),
+      insurance_company_code: formData.insurance_company_code,
+      insurance_policy_type: formData.insurance_policy_type,
+      amount: parseFloat(formData.amount),
+      paid_amount: parseFloat(formData.paid_amount),
+      start_date: startDate,
+      end_date: endDate,
+      policy_number: formData.policy_number || null,
+      comment: formData.comment || null,
+      commission_rate: formData.no_commission ? 0 : parseFloat(selectedRate.commission_rate),
+      commission_amount: commission,
+      no_commission: formData.no_commission
+    }
+
+    // Only new policies start as pending; editing must keep the existing payment status/date.
+    if (!editingId) {
+      policyData.payment_status = 'pending'
     }
 
     try {
-      const commissionAmount = calculateCommission()
+      const { error } = editingId
+        ? await supabase.from('client_policies').update(policyData).eq('id', editingId)
+        : await supabase.from('client_policies').insert([policyData])
 
-      const policyData = {
-        client_id: parseInt(formData.client_id),
-        insurance_company_code: formData.insurance_company_code,
-        insurance_policy_type: formData.insurance_policy_type,
-        amount: parseFloat(formData.amount),
-        paid_amount: parseFloat(formData.paid_amount),
-        start_date: startDate,
-        end_date: endDate,
-        policy_number: formData.policy_number || null,
-        comment: formData.comment || null,
-        commission_rate: formData.no_commission ? 0 : parseFloat(selectedRate.commission_rate),
-        commission_amount: commissionAmount,
-        no_commission: formData.no_commission
-      }
-
-      // Only new policies start as pending; editing must keep the existing payment status/date.
-      if (!editingId) {
-        policyData.payment_status = 'pending'
-      }
-
-      if (editingId) {
-        const { error } = await supabase
-          .from('client_policies')
-          .update(policyData)
-          .eq('id', editingId)
-
-        if (error) throw error
-        setSuccess('Policy updated successfully!')
-        setEditingId(null)
-      } else {
-        const { error } = await supabase
-          .from('client_policies')
-          .insert([policyData])
-
-        if (error) throw error
-        setSuccess('Policy added successfully!')
-      }
-
+      if (error) throw error
+      toast.success(editingId ? 'Policy updated.' : 'Policy added.')
       resetForm()
       fetchData()
-      
-      setTimeout(() => setSuccess(null), 3000)
     } catch (error) {
-      setError(error.message)
+      toast.error(friendlyError(error))
     }
+  }
+
+  const openNewForm = () => {
+    setFormData({ ...emptyForm, client_id: clientFilter ? String(clientFilter) : '' })
+    setShowForm(true)
   }
 
   const handleEdit = (policy) => {
@@ -212,49 +217,36 @@ function Policies() {
       insurance_policy_type: policy.insurance_policy_type,
       commission_rate: policy.commission_rate
     })
-    setError(null)
     setEditingId(policy.id)
     setShowForm(true)
     requestAnimationFrame(() => document.getElementById('policy-edit-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
   }
 
-  const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this policy?')) return
-    setError(null)
+  const handleDelete = async (policy) => {
+    const ok = await confirm({
+      title: 'Delete this policy?',
+      message: `${clientName(policy)} · ${policy.insurance_company_code} ${policy.insurance_policy_type} · ${formatAmount(policy.amount)}. Its commission record is deleted too. This cannot be undone.`,
+      confirmLabel: 'Delete policy',
+      destructive: true
+    })
+    if (!ok) return
 
     try {
-      const { error } = await supabase
-        .from('client_policies')
-        .delete()
-        .eq('id', id)
-
+      const { error } = await supabase.from('client_policies').delete().eq('id', policy.id)
       if (error) throw error
-      setSuccess('Policy deleted successfully!')
+      toast.success('Policy deleted.')
+      if (editingId === policy.id) resetForm()
       fetchData()
-      setTimeout(() => setSuccess(null), 3000)
     } catch (error) {
-      setError(error.message)
+      toast.error(friendlyError(error))
     }
   }
 
   const resetForm = () => {
-    setFormData({
-      client_id: '',
-      insurance_company_code: '',
-      insurance_policy_type: '',
-      amount: '',
-      paid_amount: '',
-      start_date: '',
-      end_date: '',
-      policy_number: '',
-      comment: '',
-      no_commission: false
-    })
+    setFormData(emptyForm)
     setEditingId(null)
     setOriginalRate(null)
-    setSelectedRate(null)
     setShowForm(false)
-    setError(null)
   }
 
   const handleChange = (e) => {
@@ -265,41 +257,28 @@ function Policies() {
     })
   }
 
-  const calculateCommission = () => {
-    if (formData.no_commission) return 0
-    if (!formData.amount || !formData.paid_amount || !selectedRate) return 0
-    
-    const policyAmount = parseFloat(formData.amount)
-    const paidAmount = parseFloat(formData.paid_amount)
-    const discount = policyAmount - paidAmount
-    
-    const fullCommission = policyAmount * parseFloat(selectedRate.commission_rate)
-    const finalCommission = fullCommission - discount
-    
-    return Math.max(0, finalCommission)
+  const matchesExpiry = (policy) => {
+    if (expirationFilter === 'all') return true
+    if (!policy.end_date) return false
+    const days = daysUntil(policy.end_date)
+    if (expirationFilter === 'expired') return days < 0
+    const { maxDays } = EXPIRY_FILTERS.find((f) => f.value === expirationFilter)
+    return days >= 0 && days <= maxDays
   }
 
-  const getFilteredPolicies = () => {
-    return policies.filter(policy => {
-      if (expirationFilter === 'all') return true
-      if (!policy.end_date) return false
+  const scopedPolicies = policies.filter((p) =>
+    (!clientFilter || p.client_id === clientFilter) && matchesExpiry(p)
+  )
 
-      const daysUntilExpiry = daysUntil(policy.end_date)
-
-      switch (expirationFilter) {
-        case 'expired':
-          return daysUntilExpiry < 0
-        case 'expiring-30':
-          return daysUntilExpiry >= 0 && daysUntilExpiry <= 30
-        case 'expiring-60':
-          return daysUntilExpiry >= 0 && daysUntilExpiry <= 60
-        case 'expiring-90':
-          return daysUntilExpiry >= 0 && daysUntilExpiry <= 90
-        default:
-          return true
-      }
-    })
-  }
+  const table = useTableControls(scopedPolicies, {
+    searchText: (p) => [
+      clientName(p), p.policy_number, p.comment,
+      p.insurance_company_code, p.insurance_companies?.name,
+      p.insurance_policy_type, p.insurance_policy_types?.name,
+    ].join(' '),
+    sorters,
+    defaultSort: { key: 'start', dir: 'desc' },
+  })
 
   if (loading) {
     return (
@@ -309,43 +288,50 @@ function Policies() {
     )
   }
 
-  const filteredPolicies = getFilteredPolicies()
+  const filteredClient = clientFilter ? clients.find((c) => c.id === clientFilter) : null
+  const clientPolicyCount = clientFilter ? policies.filter((p) => p.client_id === clientFilter).length : policies.length
+  const sortProps = { sort: table.sort, onSort: table.toggleSort }
 
   return (
     <div className="space-y-6">
-      {/* Alerts */}
-      {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="flex items-center gap-2 rounded-lg border border-success/50 bg-success/10 p-4 text-sm text-success">
-          <CheckCircle2 className="h-4 w-4" />
-          {success}
-        </div>
-      )}
-
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">{editingId ? 'Edit Policy' : 'Policy List'}</h2>
-          <p className="text-sm text-muted-foreground">{filteredPolicies.length} policies</p>
+          <h2 className="text-lg font-semibold">
+            {filteredClient ? `Policies of ${filteredClient.first_name} ${filteredClient.last_name}` : 'Policy List'}
+          </h2>
+          <p className="text-sm text-muted-foreground">{table.rows.length} policies</p>
         </div>
-        {!showForm && (
-          <Button onClick={() => setShowForm(true)}>
-            <Plus className="h-4 w-4" />
-            Add Policy
-          </Button>
-        )}
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+          <SearchInput value={table.query} onChange={table.setQuery} placeholder="Search policies" />
+          {!showForm && (
+            <Button onClick={openNewForm}>
+              <Plus className="h-4 w-4" />
+              Add Policy
+            </Button>
+          )}
+        </div>
       </div>
+
+      {clientFilter && (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <Badge variant="secondary" className="gap-1 py-1">
+            Client: {filteredClient ? `${filteredClient.first_name} ${filteredClient.last_name}` : `#${clientFilter}`}
+            <button type="button" aria-label="Show all clients" onClick={() => navigate('policies')} className="ml-1 hover:text-foreground">
+              <X className="h-3 w-3" />
+            </button>
+          </Badge>
+          <Button variant="link" size="sm" className="h-auto p-0" onClick={() => navigate('clients')}>
+            Back to clients
+          </Button>
+        </div>
+      )}
 
       {/* Add/Edit Policy Form */}
       {showForm && (
-          <Card id="policy-edit-form">
-            <CardHeader>
-              <CardTitle>{editingId ? 'Update Policy' : 'Add New Policy'}</CardTitle>
+        <Card id="policy-edit-form">
+          <CardHeader>
+            <CardTitle>{editingId ? 'Update Policy' : 'Add New Policy'}</CardTitle>
             <CardDescription>Enter the policy details. Commission will be auto-calculated.</CardDescription>
           </CardHeader>
           <CardContent>
@@ -420,13 +406,11 @@ function Policies() {
               {selectedRate && !formData.no_commission && (
                 <div className="rounded-lg border border-border bg-muted p-3">
                   <span className="text-sm text-muted-foreground">Commission Rate: </span>
-                  <Badge variant="success">{(parseFloat(selectedRate.commission_rate) * 100).toFixed(2)}%</Badge>
-                  {selectedRate === originalRate && currentTableRate &&
+                  <Badge variant="success">{formatRate(selectedRate.commission_rate)}</Badge>
+                  {keepsOriginalRate && currentTableRate &&
                     parseFloat(currentTableRate.commission_rate) !== parseFloat(originalRate.commission_rate) && (
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span>
-                        Saved rate kept. Current rate is {(parseFloat(currentTableRate.commission_rate) * 100).toFixed(2)}%.
-                      </span>
+                      <span>Saved rate kept. Current rate is {formatRate(currentTableRate.commission_rate)}.</span>
                       <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setOriginalRate(null)}>
                         Use current rate
                       </Button>
@@ -435,18 +419,10 @@ function Policies() {
                 </div>
               )}
 
-              {formData.amount && formData.paid_amount &&
-                parseFloat(formData.paid_amount) > parseFloat(formData.amount) && (
-                <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  Paid amount cannot be more than the policy amount.
-                </div>
-              )}
-
               {formData.insurance_company_code && formData.insurance_policy_type && !selectedRate && !formData.no_commission && (
                 <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  No commission rate found for this combination. Please add a rate in the Rates section first or check &quot;No Commission&quot;.
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  No commission rate found for this combination. Add a rate on the Rates page first or tick &quot;No commission&quot;.
                 </div>
               )}
 
@@ -480,9 +456,16 @@ function Policies() {
                 </div>
               </div>
 
+              {paidTooHigh && (
+                <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  Paid amount cannot be more than the policy amount.
+                </div>
+              )}
+
               {/* Commission Calculation Preview */}
               {formData.amount && formData.paid_amount && (
-                <div className="rounded-lg border border-border bg-muted p-4 space-y-2">
+                <div className="space-y-2 rounded-lg border border-border bg-muted p-4">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Discount:</span>
                     <span>{formatAmount(parseFloat(formData.amount) - parseFloat(formData.paid_amount))}</span>
@@ -493,9 +476,9 @@ function Policies() {
                         <span className="text-muted-foreground">Full Commission:</span>
                         <span>{formatAmount(parseFloat(formData.amount) * parseFloat(selectedRate.commission_rate))}</span>
                       </div>
-                      <div className="flex justify-between font-medium text-success pt-2 border-t border-border">
+                      <div className="flex justify-between border-t border-border pt-2 font-medium text-success">
                         <span>Your Commission:</span>
-                        <span>{formatAmount(calculateCommission())}</span>
+                        <span>{formatAmount(commission)}</span>
                       </div>
                     </>
                   )}
@@ -581,20 +564,14 @@ function Policies() {
         <CardContent className="p-4">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-medium text-muted-foreground">Filter:</span>
-            {[
-              { value: 'all', label: `All (${policies.length})` },
-              { value: 'expiring-30', label: 'Expiring in 30 days' },
-              { value: 'expiring-60', label: 'Expiring in 60 days' },
-              { value: 'expiring-90', label: 'Expiring in 90 days' },
-              { value: 'expired', label: 'Expired' },
-            ].map((filter) => (
+            {EXPIRY_FILTERS.map((filter) => (
               <Button
                 key={filter.value}
                 variant={expirationFilter === filter.value ? 'default' : 'secondary'}
                 size="sm"
                 onClick={() => setExpirationFilter(filter.value)}
               >
-                {filter.label}
+                {filter.value === 'all' ? `All (${clientPolicyCount})` : filter.label}
               </Button>
             ))}
           </div>
@@ -602,111 +579,109 @@ function Policies() {
       </Card>
 
       {/* Policies Table */}
-      {filteredPolicies.length === 0 ? (
+      {table.rows.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <FileText className="mb-4 h-12 w-12 text-muted-foreground" />
-            <p className="text-muted-foreground">No policies found with the selected filter.</p>
+            <p className="text-muted-foreground">No policies found with the selected filters.</p>
           </CardContent>
         </Card>
       ) : (
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Client</TableHead>
-                <TableHead>Company</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Commission</TableHead>
-                <TableHead>Dates</TableHead>
-                <TableHead>Comment</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredPolicies.map((policy) => {
-                const daysUntilExpiry = policy.end_date ? daysUntil(policy.end_date) : null
-                
-                return (
-                  <TableRow key={policy.id}>
-                    <TableCell className="font-medium">
-                      {policy.clients?.first_name} {policy.clients?.last_name}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-                          {policy.insurance_companies?.code}
-                        </span>
-                        <span className="text-sm text-muted-foreground">{policy.insurance_companies?.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <SortableTableHead sortKey="client" {...sortProps}>Client</SortableTableHead>
+              <SortableTableHead sortKey="company" {...sortProps}>Company</SortableTableHead>
+              <SortableTableHead sortKey="type" {...sortProps}>Type</SortableTableHead>
+              <SortableTableHead sortKey="amount" {...sortProps}>Amount</SortableTableHead>
+              <SortableTableHead sortKey="commission" {...sortProps}>Commission</SortableTableHead>
+              <SortableTableHead sortKey="end" {...sortProps}>Dates</SortableTableHead>
+              <TableHead>Comment</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {table.rows.map((policy) => {
+              const daysUntilExpiry = policy.end_date ? daysUntil(policy.end_date) : null
+
+              return (
+                <TableRow key={policy.id}>
+                  <TableCell className="font-medium">
+                    {clientName(policy)}
+                    {policy.policy_number && (
+                      <div className="text-xs font-normal text-muted-foreground">#{policy.policy_number}</div>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
                       <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-                        {policy.insurance_policy_types?.type}
+                        {policy.insurance_companies?.code}
                       </span>
-                    </TableCell>
-                    <TableCell>
+                      <span className="text-sm text-muted-foreground">{policy.insurance_companies?.name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                      {policy.insurance_policy_types?.type}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="space-y-0.5">
+                      <div className="font-medium">{formatAmount(policy.amount)}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Paid: {formatAmount(policy.paid_amount)}
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {policy.no_commission ? (
+                      <span className="text-muted-foreground">No Commission</span>
+                    ) : (
                       <div className="space-y-0.5">
-                        <div className="font-medium">{formatAmount(policy.amount)}</div>
+                        <div className="font-medium text-success">
+                          {formatAmount(policy.commission_amount)}
+                        </div>
                         <div className="text-xs text-muted-foreground">
-                          Paid: {formatAmount(policy.paid_amount)}
+                          {formatRate(policy.commission_rate)}
                         </div>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      {policy.no_commission ? (
-                        <span className="text-muted-foreground">No Commission</span>
-                      ) : (
-                        <div className="space-y-0.5">
-                          <div className="font-medium text-success">
-                            {formatAmount(policy.commission_amount)}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {(parseFloat(policy.commission_rate) * 100).toFixed(2)}%
-                          </div>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="space-y-0.5 text-sm">
+                      <div>{formatDate(policy.start_date)}</div>
+                      {policy.end_date && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-muted-foreground">
+                            {formatDate(policy.end_date)}
+                          </span>
+                          {daysUntilExpiry !== null && (
+                            <Badge variant={daysUntilExpiry < 0 ? 'error' : daysUntilExpiry <= 30 ? 'warning' : 'secondary'}>
+                              {daysUntilExpiry < 0 ? 'Expired' : `${daysUntilExpiry}d left`}
+                            </Badge>
+                          )}
                         </div>
                       )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-0.5 text-sm">
-                        <div>{formatDate(policy.start_date)}</div>
-                        {policy.end_date && (
-                          <div className="flex items-center gap-1">
-                            <span className="text-muted-foreground">
-                              {formatDate(policy.end_date)}
-                            </span>
-                            {daysUntilExpiry !== null && (
-                              <Badge variant={daysUntilExpiry < 0 ? 'error' : daysUntilExpiry <= 30 ? 'warning' : 'secondary'}>
-                                {daysUntilExpiry < 0 
-                                  ? `Expired` 
-                                  : `${daysUntilExpiry}d left`
-                                }
-                              </Badge>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="max-w-[240px] truncate text-muted-foreground" title={policy.comment || undefined}>
-                      {policy.comment || '-'}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(policy)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(policy.id)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="max-w-[240px] truncate text-muted-foreground" title={policy.comment || undefined}>
+                    {policy.comment || '-'}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" aria-label="Edit policy" onClick={() => handleEdit(policy)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" aria-label="Delete policy" onClick={() => handleDelete(policy)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
       )}
     </div>
   )
