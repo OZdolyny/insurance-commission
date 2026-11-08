@@ -4,79 +4,61 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Button } from '../components/ui/Button'
 import { Select } from '../components/ui/Select'
 import { Label } from '../components/ui/Label'
-import { formatAmount } from '../lib/utils'
-import { Users, FileText, DollarSign, TrendingUp, Clock, CheckCircle2, Lightbulb, BookOpen } from 'lucide-react'
+import { formatAmount, getYears, matchesPeriod } from '../lib/utils'
+import { Users, FileText, DollarSign, TrendingUp, Clock, CheckCircle2, Lightbulb, BookOpen, AlertCircle } from 'lucide-react'
 
 function Dashboard() {
-  const [stats, setStats] = useState({
-    totalClients: 0,
-    totalPolicies: 0,
-    totalCommissions: 0,
-    paidCommissions: 0,
-    pendingCommissions: 0
-  })
+  const [clientCount, setClientCount] = useState(0)
+  const [policies, setPolicies] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [dateFilterType, setDateFilterType] = useState('all')
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
-  const [availableYears, setAvailableYears] = useState([])
 
+  const availableYears = getYears(policies, 'start_date')
+
+  // Load once; changing the period only re-filters the data already loaded
   useEffect(() => {
     fetchStats()
-  }, [dateFilterType, selectedYear, selectedMonth])
+  }, [])
+
+  // Default the year filter to a year that has data (the current year may have none yet)
+  useEffect(() => {
+    if (availableYears.length > 0 && !availableYears.includes(selectedYear)) {
+      setSelectedYear(availableYears[0])
+    }
+  }, [policies])
 
   const fetchStats = async () => {
     try {
-      const { count: clientCount } = await supabase
-        .from('clients')
-        .select('*', { count: 'exact', head: true })
+      const [clientsResult, policiesResult] = await Promise.all([
+        supabase.from('clients').select('*', { count: 'exact', head: true }),
+        supabase.from('client_policies').select('commission_amount, payment_status, start_date')
+      ])
 
-      const { count: policyCount } = await supabase
-        .from('client_policies')
-        .select('*', { count: 'exact', head: true })
+      if (clientsResult.error) throw clientsResult.error
+      if (policiesResult.error) throw policiesResult.error
 
-      const { data: policies } = await supabase
-        .from('client_policies')
-        .select('commission_amount, payment_status, start_date')
-
-      if (policies && policies.length > 0) {
-        const years = policies.map(p => new Date(p.start_date).getFullYear())
-        const uniqueYears = [...new Set(years)].sort((a, b) => b - a)
-        setAvailableYears(uniqueYears)
-      }
-
-      const filteredPolicies = policies?.filter(policy => {
-        const policyDate = new Date(policy.start_date)
-        
-        switch (dateFilterType) {
-          case 'all':
-            return true
-          case 'year':
-            return policyDate.getFullYear() === selectedYear
-          case 'month':
-            return policyDate.getFullYear() === selectedYear && 
-                   policyDate.getMonth() + 1 === selectedMonth
-          default:
-            return true
-        }
-      }) || []
-
-      const totalCommissions = filteredPolicies.reduce((sum, p) => sum + (parseFloat(p.commission_amount) || 0), 0)
-      const paidCommissions = filteredPolicies.filter(p => p.payment_status === 'paid').reduce((sum, p) => sum + (parseFloat(p.commission_amount) || 0), 0)
-      const pendingCommissions = filteredPolicies.filter(p => p.payment_status === 'pending').reduce((sum, p) => sum + (parseFloat(p.commission_amount) || 0), 0)
-
-      setStats({
-        totalClients: clientCount || 0,
-        totalPolicies: policyCount || 0,
-        totalCommissions: totalCommissions,
-        paidCommissions: paidCommissions,
-        pendingCommissions: pendingCommissions
-      })
+      setClientCount(clientsResult.count || 0)
+      setPolicies(policiesResult.data || [])
+      setError(null)
     } catch (error) {
       console.error('Error fetching stats:', error)
+      setError(error.message || 'Could not load dashboard data.')
     } finally {
       setLoading(false)
     }
+  }
+
+  const sumCommission = (rows) => rows.reduce((sum, p) => sum + (parseFloat(p.commission_amount) || 0), 0)
+  const filteredPolicies = policies.filter(p => matchesPeriod(p.start_date, dateFilterType, selectedYear, selectedMonth))
+  const stats = {
+    totalClients: clientCount,
+    totalPolicies: filteredPolicies.length,
+    totalCommissions: sumCommission(filteredPolicies),
+    paidCommissions: sumCommission(filteredPolicies.filter(p => p.payment_status === 'paid')),
+    pendingCommissions: sumCommission(filteredPolicies.filter(p => p.payment_status === 'pending'))
   }
 
   const months = [
@@ -94,6 +76,13 @@ function Dashboard() {
 
   return (
     <div className="space-y-6">
+      {error && (
+        <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          Could not load dashboard data: {error}
+        </div>
+      )}
+
       {/* Period Filter */}
       <Card>
         <CardHeader className="pb-4">
@@ -188,7 +177,7 @@ function Dashboard() {
                 <FileText className="h-6 w-6 text-muted-foreground" />
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Active Policies</p>
+                <p className="text-sm font-medium text-muted-foreground">Policies</p>
                 <p className="text-2xl font-bold">{stats.totalPolicies}</p>
               </div>
             </div>

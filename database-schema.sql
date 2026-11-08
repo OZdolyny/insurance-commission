@@ -59,6 +59,7 @@ CREATE TABLE client_policies (
   payment_status TEXT DEFAULT 'pending' CHECK (payment_status IN ('pending', 'paid')),
   payment_date DATE,
   policy_number TEXT,
+  comment TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

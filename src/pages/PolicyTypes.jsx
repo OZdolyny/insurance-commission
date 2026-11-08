@@ -112,7 +112,7 @@ function PolicyTypes() {
           <h2 className="text-lg font-semibold">Policy Type List</h2>
           <p className="text-sm text-muted-foreground">{policyTypes.length} policy types</p>
         </div>
-        <Button onClick={() => setShowForm(!showForm)}>
+        <Button onClick={() => { setShowForm(!showForm); setError(null) }}>
           <Plus className="h-4 w-4" />
           Add Policy Type
         </Button>
@@ -155,7 +155,7 @@ function PolicyTypes() {
 
               <div className="flex gap-2 md:col-span-2">
                 <Button type="submit">Add Policy Type</Button>
-                <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>
+                <Button type="button" variant="secondary" onClick={() => { setShowForm(false); setError(null) }}>
                   Cancel
                 </Button>
               </div>

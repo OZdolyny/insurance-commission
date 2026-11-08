@@ -95,6 +95,7 @@ function Clients() {
   }
 
   const cancelForm = () => {
+    setError(null)
     setFormData(emptyForm)
     setEditingClientId(null)
     setShowForm(false)

@@ -4,11 +4,51 @@ export function cn(...inputs) {
   return clsx(inputs)
 }
 
+// Parse a value into a Date. Date-only strings (yyyy-mm-dd, as stored by the database) are read
+// as local midnight; new Date('yyyy-mm-dd') would read them as UTC and can shift the day.
+export function parseLocalDate(value) {
+  if (!value) return null
+  if (value instanceof Date) return value
+  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  const date = match
+    ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+    : new Date(value)
+  return isNaN(date.getTime()) ? null : date
+}
+
+// Whole days from today (local) until the given date; negative when the date has passed
+export function daysUntil(value) {
+  const date = parseLocalDate(value)
+  if (!date) return null
+  const today = new Date()
+  const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const dateMidnight = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  return Math.round((dateMidnight - todayMidnight) / (1000 * 60 * 60 * 24))
+}
+
+// Distinct years of the given date field, newest first
+export function getYears(rows, field) {
+  const years = rows
+    .map((row) => parseLocalDate(row[field])?.getFullYear())
+    .filter((year) => year !== undefined)
+  return [...new Set(years)].sort((a, b) => b - a)
+}
+
+// Whether a date falls in the selected period: 'all', 'year' or 'month'
+export function matchesPeriod(value, periodType, year, month) {
+  if (periodType === 'all') return true
+  const date = parseLocalDate(value)
+  if (!date) return false
+  if (periodType === 'year') return date.getFullYear() === year
+  if (periodType === 'month') return date.getFullYear() === year && date.getMonth() + 1 === month
+  return true
+}
+
 // Format a date as DD/MM/YYYY
 export function formatDate(value) {
   if (!value) return ''
-  const date = value instanceof Date ? value : new Date(value)
-  if (isNaN(date.getTime())) return ''
+  const date = parseLocalDate(value)
+  if (!date) return ''
   const day = String(date.getDate()).padStart(2, '0')
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const year = date.getFullYear()

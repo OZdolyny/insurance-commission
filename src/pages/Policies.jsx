@@ -7,7 +7,7 @@ import { Label } from '../components/ui/Label'
 import { Select } from '../components/ui/Select'
 import { Badge } from '../components/ui/Badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table'
-import { formatAmount, formatDate, formatDateInput, maskDateInput, parseDateInput } from '../lib/utils'
+import { daysUntil, formatAmount, formatDate, formatDateInput, maskDateInput, parseDateInput } from '../lib/utils'
 import { Plus, AlertCircle, CheckCircle2, FileText, Pencil, Trash2 } from 'lucide-react'
 
 function Policies() {
@@ -37,22 +37,28 @@ function Policies() {
   })
 
   const [selectedRate, setSelectedRate] = useState(null)
+  // Rate the policy being edited was saved with, so editing keeps it instead of picking up today's rate
+  const [originalRate, setOriginalRate] = useState(null)
 
   useEffect(() => {
     fetchData()
   }, [])
 
+  const currentTableRate = policyRates.find(
+    r => r.insurance_company_code === formData.insurance_company_code &&
+         r.insurance_policy_type === formData.insurance_policy_type
+  ) || null
+
   useEffect(() => {
-    if (formData.insurance_company_code && formData.insurance_policy_type) {
-      const rate = policyRates.find(
-        r => r.insurance_company_code === formData.insurance_company_code && 
-             r.insurance_policy_type === formData.insurance_policy_type
-      )
-      setSelectedRate(rate || null)
-    } else {
+    if (!formData.insurance_company_code || !formData.insurance_policy_type) {
       setSelectedRate(null)
+      return
     }
-  }, [formData.insurance_company_code, formData.insurance_policy_type, policyRates])
+    const sameCombination = originalRate &&
+      originalRate.insurance_company_code === formData.insurance_company_code &&
+      originalRate.insurance_policy_type === formData.insurance_policy_type
+    setSelectedRate(sameCombination ? originalRate : currentTableRate)
+  }, [formData.insurance_company_code, formData.insurance_policy_type, policyRates, originalRate])
 
   const fetchData = async () => {
     try {
@@ -132,6 +138,11 @@ function Policies() {
       return
     }
 
+    if (parseFloat(formData.paid_amount) > parseFloat(formData.amount)) {
+      setError('Paid amount cannot be more than the policy amount.')
+      return
+    }
+
     try {
       const commissionAmount = calculateCommission()
 
@@ -195,6 +206,13 @@ function Policies() {
       comment: policy.comment || '',
       no_commission: policy.no_commission || false
     })
+    // Policies saved with "No commission" have rate 0, so there is no original rate worth keeping
+    setOriginalRate(policy.no_commission ? null : {
+      insurance_company_code: policy.insurance_company_code,
+      insurance_policy_type: policy.insurance_policy_type,
+      commission_rate: policy.commission_rate
+    })
+    setError(null)
     setEditingId(policy.id)
     setShowForm(true)
     requestAnimationFrame(() => document.getElementById('policy-edit-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
@@ -202,6 +220,7 @@ function Policies() {
 
   const handleDelete = async (id) => {
     if (!confirm('Are you sure you want to delete this policy?')) return
+    setError(null)
 
     try {
       const { error } = await supabase
@@ -228,11 +247,14 @@ function Policies() {
       start_date: '',
       end_date: '',
       policy_number: '',
+      comment: '',
       no_commission: false
     })
     setEditingId(null)
+    setOriginalRate(null)
     setSelectedRate(null)
     setShowForm(false)
+    setError(null)
   }
 
   const handleChange = (e) => {
@@ -258,15 +280,12 @@ function Policies() {
   }
 
   const getFilteredPolicies = () => {
-    const today = new Date()
-    
     return policies.filter(policy => {
       if (expirationFilter === 'all') return true
       if (!policy.end_date) return false
-      
-      const endDate = new Date(policy.end_date)
-      const daysUntilExpiry = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24))
-      
+
+      const daysUntilExpiry = daysUntil(policy.end_date)
+
       switch (expirationFilter) {
         case 'expired':
           return daysUntilExpiry < 0
@@ -402,6 +421,25 @@ function Policies() {
                 <div className="rounded-lg border border-border bg-muted p-3">
                   <span className="text-sm text-muted-foreground">Commission Rate: </span>
                   <Badge variant="success">{(parseFloat(selectedRate.commission_rate) * 100).toFixed(2)}%</Badge>
+                  {selectedRate === originalRate && currentTableRate &&
+                    parseFloat(currentTableRate.commission_rate) !== parseFloat(originalRate.commission_rate) && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span>
+                        Saved rate kept. Current rate is {(parseFloat(currentTableRate.commission_rate) * 100).toFixed(2)}%.
+                      </span>
+                      <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setOriginalRate(null)}>
+                        Use current rate
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {formData.amount && formData.paid_amount &&
+                parseFloat(formData.paid_amount) > parseFloat(formData.amount) && (
+                <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  Paid amount cannot be more than the policy amount.
                 </div>
               )}
 
@@ -588,9 +626,7 @@ function Policies() {
             </TableHeader>
             <TableBody>
               {filteredPolicies.map((policy) => {
-                const daysUntilExpiry = policy.end_date 
-                  ? Math.ceil((new Date(policy.end_date) - new Date()) / (1000 * 60 * 60 * 24))
-                  : null
+                const daysUntilExpiry = policy.end_date ? daysUntil(policy.end_date) : null
                 
                 return (
                   <TableRow key={policy.id}>

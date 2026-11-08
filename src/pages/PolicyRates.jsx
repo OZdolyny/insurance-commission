@@ -133,7 +133,7 @@ function PolicyRates() {
           <h2 className="text-lg font-semibold">Commission Rate List</h2>
           <p className="text-sm text-muted-foreground">{policyRates.length} commission rates configured</p>
         </div>
-        <Button onClick={() => setShowForm(!showForm)}>
+        <Button onClick={() => { setShowForm(!showForm); setError(null) }}>
           <Plus className="h-4 w-4" />
           Add Rate
         </Button>
@@ -210,7 +210,7 @@ function PolicyRates() {
 
               <div className="flex gap-2 md:col-span-2">
                 <Button type="submit">Add Rate</Button>
-                <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>
+                <Button type="button" variant="secondary" onClick={() => { setShowForm(false); setError(null) }}>
                   Cancel
                 </Button>
               </div>

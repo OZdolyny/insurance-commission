@@ -7,7 +7,7 @@ import { Label } from '../components/ui/Label'
 import { Select } from '../components/ui/Select'
 import { Badge } from '../components/ui/Badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table'
-import { formatAmount, formatDate, maskDateInput, parseDateInput, todayDateInput } from '../lib/utils'
+import { formatAmount, formatDate, getYears, maskDateInput, matchesPeriod, parseDateInput, parseLocalDate, todayDateInput } from '../lib/utils'
 import { AlertCircle, CheckCircle2, DollarSign, TrendingUp, Clock, X } from 'lucide-react'
 
 function Commissions() {
@@ -32,9 +32,18 @@ function Commissions() {
     'July', 'August', 'September', 'October', 'November', 'December'
   ]
 
+  const availableYears = getYears(commissions, 'start_date')
+
   useEffect(() => {
     fetchCommissions()
   }, [])
+
+  // Default the year filter to a year that has data (the current year may have none yet)
+  useEffect(() => {
+    if (availableYears.length > 0 && !availableYears.includes(selectedYear)) {
+      setSelectedYear(availableYears[0])
+    }
+  }, [commissions])
 
   const fetchCommissions = async () => {
     try {
@@ -94,6 +103,7 @@ function Commissions() {
   }
 
   const markAsPending = async (policyId) => {
+    setError(null)
     try {
       const { error } = await supabase
         .from('client_policies')
@@ -114,37 +124,23 @@ function Commissions() {
     }
   }
 
-  const getAvailableYears = () => {
-    if (commissions.length === 0) return []
-    
-    const years = commissions.map(c => new Date(c.start_date).getFullYear())
-    return [...new Set(years)].sort((a, b) => b - a)
-  }
-
   const filterByDate = (commission) => {
-    const commissionDate = new Date(commission.start_date)
-    
     switch (dateFilterType) {
       case 'all':
-        return true
-      
       case 'year':
-        return commissionDate.getFullYear() === selectedYear
-      
       case 'month':
-        return commissionDate.getFullYear() === selectedYear && 
-               commissionDate.getMonth() + 1 === selectedMonth
-      
-      case 'custom':
+        return matchesPeriod(commission.start_date, dateFilterType, selectedYear, selectedMonth)
+
+      case 'custom': {
+        const commissionDate = parseLocalDate(commission.start_date)
+        if (!commissionDate) return false
         const startIso = parseDateInput(customStartDate)
         const endIso = parseDateInput(customEndDate)
         // Ignore the range until both dates are complete and valid
         if (!startIso || !endIso) return true
-        const start = new Date(startIso)
-        const end = new Date(endIso)
-        end.setHours(23, 59, 59, 999)
-        return commissionDate >= start && commissionDate <= end
-      
+        return commissionDate >= parseLocalDate(startIso) && commissionDate <= parseLocalDate(endIso)
+      }
+
       default:
         return true
     }
@@ -178,7 +174,6 @@ function Commissions() {
 
   const totals = calculateTotals()
   const filteredCommissions = getFilteredCommissions()
-  const availableYears = getAvailableYears()
 
   return (
     <div className="space-y-6">
