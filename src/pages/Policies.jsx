@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -11,10 +11,15 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Sortable
 import { useToast } from '../components/ui/Toast'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { useTableControls } from '../hooks/useTableControls'
-import { daysUntil, formatAmount, formatDate, formatDateInput, maskDateInput, parseDateInput } from '../lib/utils'
+import { daysUntil, formatAmount, formatDate, formatDateInput, maskDateInput } from '../lib/utils'
 import { calculateCommission, formatRate } from '../lib/commission'
+import { buildPolicyData } from '../lib/policyForm'
 import { friendlyError } from '../lib/errors'
-import { Plus, AlertCircle, FileText, Pencil, Trash2, X } from 'lucide-react'
+import { PolicyImportDialog } from '../components/PolicyImportDialog'
+import { Plus, AlertCircle, FileText, Pencil, Trash2, X, Upload } from 'lucide-react'
+
+// Client fields the policy form and the PDF import (client matching) need
+const CLIENT_COLUMNS = 'id, first_name, last_name, father_name, phone_number, email'
 
 const emptyForm = {
   client_id: '',
@@ -64,6 +69,8 @@ function Policies({ params = {}, navigate }) {
   const [showForm, setShowForm] = useState(false)
   const [expirationFilter, setExpirationFilter] = useState('all')
   const [formData, setFormData] = useState(emptyForm)
+  const [importFile, setImportFile] = useState(null)
+  const fileInputRef = useRef(null)
   // Rate the policy being edited was saved with, so editing keeps it instead of picking up today's rate
   const [originalRate, setOriginalRate] = useState(null)
 
@@ -86,10 +93,16 @@ function Policies({ params = {}, navigate }) {
     ? null
     : keepsOriginalRate ? originalRate : currentTableRate
 
+  // After the import dialog adds or edits a client
+  const reloadClients = async () => {
+    const { data, error } = await supabase.from('clients').select(CLIENT_COLUMNS).order('first_name')
+    if (!error) setClients(data || [])
+  }
+
   const fetchData = async () => {
     try {
       const results = await Promise.all([
-        supabase.from('clients').select('id, first_name, last_name').order('first_name'),
+        supabase.from('clients').select(CLIENT_COLUMNS).order('first_name'),
         supabase.from('insurance_companies').select('code, name').order('name'),
         supabase.from('insurance_policy_types').select('type, name').order('name'),
         supabase.from('insurance_policy_rates').select('*'),
@@ -133,50 +146,10 @@ function Policies({ params = {}, navigate }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    if (!selectedRate && !formData.no_commission) {
-      toast.error('No commission rate exists for this company and policy type. Add a rate first or tick "No commission".')
+    const { error: validationError, data: policyData } = buildPolicyData(formData, { selectedRate, isNew: !editingId })
+    if (validationError) {
+      toast.error(validationError)
       return
-    }
-
-    const startDate = parseDateInput(formData.start_date)
-    if (!startDate) {
-      toast.error('Start date is not a valid date. Use dd/mm/yyyy.')
-      return
-    }
-
-    const endDate = formData.end_date ? parseDateInput(formData.end_date) : null
-    if (formData.end_date && !endDate) {
-      toast.error('End date is not a valid date. Use dd/mm/yyyy, or leave it empty.')
-      return
-    }
-    if (endDate && endDate < startDate) {
-      toast.error('End date cannot be before the start date.')
-      return
-    }
-
-    if (paidTooHigh) {
-      toast.error('Paid amount cannot be more than the policy amount.')
-      return
-    }
-
-    const policyData = {
-      client_id: parseInt(formData.client_id),
-      insurance_company_code: formData.insurance_company_code,
-      insurance_policy_type: formData.insurance_policy_type,
-      amount: parseFloat(formData.amount),
-      paid_amount: parseFloat(formData.paid_amount),
-      start_date: startDate,
-      end_date: endDate,
-      policy_number: formData.policy_number || null,
-      comment: formData.comment || null,
-      commission_rate: formData.no_commission ? 0 : parseFloat(selectedRate.commission_rate),
-      commission_amount: commission,
-      no_commission: formData.no_commission
-    }
-
-    // Only new policies start as pending; editing must keep the existing payment status/date.
-    if (!editingId) {
-      policyData.payment_status = 'pending'
     }
 
     try {
@@ -304,6 +277,21 @@ function Policies({ params = {}, navigate }) {
         </div>
         <div className="flex w-full flex-wrap gap-2 sm:w-auto">
           <SearchInput value={table.query} onChange={table.setQuery} placeholder="Search policies" />
+          <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
+            <Upload className="h-4 w-4" />
+            Upload PDF
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,application/pdf,.p7s,application/pkcs7-mime"
+            className="hidden"
+            aria-label="Upload policy PDF"
+            onChange={(e) => {
+              setImportFile(e.target.files?.[0] || null)
+              e.target.value = '' // allow choosing the same file again
+            }}
+          />
           {!showForm && (
             <Button onClick={openNewForm}>
               <Plus className="h-4 w-4" />
@@ -312,6 +300,23 @@ function Policies({ params = {}, navigate }) {
           )}
         </div>
       </div>
+
+      {importFile && (
+        <PolicyImportDialog
+          file={importFile}
+          onClose={() => setImportFile(null)}
+          onSaved={() => {
+            setImportFile(null)
+            fetchData()
+          }}
+          clients={clients}
+          companies={companies}
+          policyTypes={policyTypes}
+          policyRates={policyRates}
+          policies={policies}
+          reloadClients={reloadClients}
+        />
+      )}
 
       {clientFilter && (
         <div className="flex flex-wrap items-center gap-2 text-sm">

@@ -2,9 +2,11 @@ import { useEffect } from 'react'
 import { X } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './Card'
 import { Button } from './Button'
+import { cn } from '../../lib/utils'
 
 // Modal dialog: closes on Escape or a click on the backdrop
-export function Dialog({ open, onClose, title, description, children }) {
+// closeOnBackdrop: turn off for forms, so a stray click outside does not discard edits
+export function Dialog({ open, onClose, title, description, children, size = 'md', closeOnBackdrop = true }) {
   useEffect(() => {
     if (!open) return
     const onKeyDown = (e) => {
@@ -20,10 +22,15 @@ export function Dialog({ open, onClose, title, description, children }) {
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose()
+        if (closeOnBackdrop && e.target === e.currentTarget) onClose()
       }}
     >
-      <Card role="dialog" aria-modal="true" aria-label={title} className="w-full max-w-md">
+      <Card
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className={cn('max-h-[calc(100vh-2rem)] w-full overflow-y-auto', size === 'lg' ? 'max-w-3xl' : 'max-w-md')}
+      >
         <CardHeader>
           <div className="flex items-center justify-between gap-4">
             <CardTitle>{title}</CardTitle>

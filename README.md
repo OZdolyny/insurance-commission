@@ -201,6 +201,22 @@ When you create a policy:
 - The Overview page lists policies due for renewal in the next 30 days
 - Every page has its own URL (e.g. `#/policies?client=12`), so refresh and the back button work
 
+### Importing a Policy from PDF
+
+On the Policies page, **Upload PDF** reads a motor third-party liability policy ("Автоцивілка", ОСЦПВ)
+and opens a review dialog:
+
+- **Client:** matched to an existing client by name (or last name + phone). Existing clients show an
+  **Edit** button that offers values from the policy (e.g. a new phone number); new clients show **Add client**.
+- **Policy:** number, company, policy type, premium, start and end dates are filled in and can be corrected.
+- **Comment:** the car brand, model and license plate, editable before saving.
+- A policy number that is already saved cannot be imported twice.
+
+Files signed with a qualified electronic signature (PKCS#7, as sent by insurers) are supported; the signature
+is not checked. Reading happens in the browser, and the file is not uploaded or stored.
+The parser lives in `src/lib/policyPdf/` and was built from BBS Insurance policies; other insurers' layouts
+may need small adjustments.
+
 ### Flexible Client Information
 
 - Support for first name, last name, and father name (useful in many cultures)
