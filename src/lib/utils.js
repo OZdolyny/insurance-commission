@@ -37,9 +37,38 @@ export function maskDateInput(value) {
   return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`
 }
 
+function isRealDate(year, month, day) {
+  if (year < 1900 || year > 2100 || month < 1 || month > 12 || day < 1) return false
+  const daysInMonth = new Date(year, month, 0).getDate()
+  return day <= daysInMonth
+}
+
+// Convert a dd/mm/yyyy input (or an already-ISO yyyy-mm-dd value) into yyyy-mm-dd.
+// Returns null when the value is empty, incomplete, or not a real calendar date.
 export function parseDateInput(value) {
-  const match = String(value || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
-  return match ? `${match[3]}-${match[2]}-${match[1]}` : value
+  const str = String(value || '').trim()
+  let year, month, day
+
+  const dmy = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  const iso = str.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (dmy) {
+    ;[, day, month, year] = dmy
+  } else if (iso) {
+    ;[, year, month, day] = iso
+  } else {
+    return null
+  }
+
+  if (!isRealDate(Number(year), Number(month), Number(day))) return null
+  return `${year}-${month}-${day}`
+}
+
+// Today's date in the user's local time zone, formatted as dd/mm/yyyy for masked inputs
+export function todayDateInput() {
+  const now = new Date()
+  const day = String(now.getDate()).padStart(2, '0')
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  return `${day}/${month}/${now.getFullYear()}`
 }
 
 // Format a phone number as (XXX) XXX XX XX while typing

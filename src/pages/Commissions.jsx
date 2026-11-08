@@ -7,7 +7,7 @@ import { Label } from '../components/ui/Label'
 import { Select } from '../components/ui/Select'
 import { Badge } from '../components/ui/Badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table'
-import { formatAmount, formatDate, formatDateInput, maskDateInput, parseDateInput } from '../lib/utils'
+import { formatAmount, formatDate, maskDateInput, parseDateInput, todayDateInput } from '../lib/utils'
 import { AlertCircle, CheckCircle2, DollarSign, TrendingUp, Clock, X } from 'lucide-react'
 
 function Commissions() {
@@ -25,7 +25,7 @@ function Commissions() {
   
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [selectedPolicyId, setSelectedPolicyId] = useState(null)
-  const [customPaymentDate, setCustomPaymentDate] = useState(formatDateInput(new Date().toISOString().split('T')[0]))
+  const [customPaymentDate, setCustomPaymentDate] = useState(todayDateInput())
 
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -59,17 +59,24 @@ function Commissions() {
 
   const openPaymentModal = (policyId) => {
     setSelectedPolicyId(policyId)
-    setCustomPaymentDate(new Date().toISOString().split('T')[0])
+    setCustomPaymentDate(todayDateInput())
     setShowPaymentModal(true)
   }
 
   const confirmMarkAsPaid = async () => {
+    setError(null)
+    const paymentDate = parseDateInput(customPaymentDate)
+    if (!paymentDate) {
+      setError('Payment date is not a valid date. Use dd/mm/yyyy.')
+      return
+    }
+
     try {
       const { error } = await supabase
         .from('client_policies')
-        .update({ 
+        .update({
           payment_status: 'paid',
-          payment_date: parseDateInput(customPaymentDate)
+          payment_date: paymentDate
         })
         .eq('id', selectedPolicyId)
 
@@ -129,9 +136,12 @@ function Commissions() {
                commissionDate.getMonth() + 1 === selectedMonth
       
       case 'custom':
-        if (!customStartDate || !customEndDate) return true
-        const start = new Date(parseDateInput(customStartDate))
-        const end = new Date(parseDateInput(customEndDate))
+        const startIso = parseDateInput(customStartDate)
+        const endIso = parseDateInput(customEndDate)
+        // Ignore the range until both dates are complete and valid
+        if (!startIso || !endIso) return true
+        const start = new Date(startIso)
+        const end = new Date(endIso)
         end.setHours(23, 59, 59, 999)
         return commissionDate >= start && commissionDate <= end
       
@@ -493,17 +503,20 @@ function Commissions() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="payment_date">Payment Date</Label>
-  <Input
-  id="payment_date"
-  type="text"
-  inputMode="numeric"
-  placeholder="dd/mm/yyyy"
-  value={customPaymentDate}
-  onChange={(e) => setCustomPaymentDate(maskDateInput(e.target.value))}
+                <Input
+                  id="payment_date"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="dd/mm/yyyy"
+                  value={customPaymentDate}
+                  onChange={(e) => setCustomPaymentDate(maskDateInput(e.target.value))}
                 />
+                {customPaymentDate.length === 10 && !parseDateInput(customPaymentDate) && (
+                  <p className="text-sm text-destructive">Not a valid date.</p>
+                )}
               </div>
               <div className="flex gap-2">
-                <Button onClick={confirmMarkAsPaid} className="flex-1">
+                <Button onClick={confirmMarkAsPaid} className="flex-1" disabled={!parseDateInput(customPaymentDate)}>
                   Confirm
                 </Button>
                 <Button

@@ -1,80 +1,36 @@
 // api/keep-alive.js
+// Pings Supabase once a day so the free-tier project is not paused for inactivity.
+// Scheduled by the "crons" entry in vercel.json (Vercel ignores cron settings exported from the function).
 
 export default async function handler(req, res) {
+  // If CRON_SECRET is set in Vercel, only accept calls from Vercel Cron (it sends it as a Bearer token).
+  const cronSecret = process.env.CRON_SECRET
+  if (cronSecret && req.headers.authorization !== `Bearer ${cronSecret}`) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+  const key = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
+
+  if (!url || !key) {
+    console.error('keep-alive: Supabase URL or anon key is not configured')
+    return res.status(500).json({ error: 'Server is not configured' })
+  }
+
   try {
-    // Step 1: Check if env vars exist
-    const url = process.env.VITE_SUPABASE_URL
-    const key = process.env.VITE_SUPABASE_ANON_KEY
-
-    console.log('=== ENV VAR CHECK ===')
-    console.log('URL length:', url?.length || 'NOT SET')
-    console.log('Key length:', key?.length || 'NOT SET')
-    console.log('URL starts with https:', url?.startsWith('https') || false)
-
-    if (!url || !key) {
-      return res.status(500).json({ 
-        error: 'ENV VARS NOT SET',
-        url: url ? 'SET' : 'MISSING',
-        key: key ? 'SET' : 'MISSING'
-      })
-    }
-
-    // Step 2: Try to import and create Supabase client
-    console.log('=== IMPORTING SUPABASE ===')
     const { createClient } = await import('@supabase/supabase-js')
-    console.log('Supabase imported successfully')
-
     const supabase = createClient(url, key)
-    console.log('Supabase client created successfully')
 
-    // Step 3: Try a simple query
-    console.log('=== RUNNING QUERY ===')
-    const { data, error, status } = await supabase
-      .from('clients')
-      .select('id')
-      .limit(1)
-
-    console.log('Query response status:', status)
-    console.log('Query error:', error)
-    console.log('Query data:', data)
+    const { error } = await supabase.from('clients').select('id').limit(1)
 
     if (error) {
-      console.error('=== SUPABASE ERROR ===')
-      console.error('Message:', error.message)
-      console.error('Code:', error.code)
-      console.error('Details:', error.details)
-      console.error('Hint:', error.hint)
-      
-      return res.status(500).json({ 
-        error: 'Query failed',
-        message: error.message,
-        code: error.code,
-        details: error.details,
-        hint: error.hint
-      })
+      console.error('keep-alive: Supabase query failed:', error.message, error.code)
+      return res.status(500).json({ error: 'Keep-alive query failed' })
     }
 
-    console.log('=== SUCCESS ===')
-    return res.status(200).json({ 
-      success: true,
-      message: 'Keep-alive successful',
-      timestamp: new Date().toISOString(),
-      recordsFound: data?.length || 0
-    })
-
+    return res.status(200).json({ success: true, timestamp: new Date().toISOString() })
   } catch (error) {
-    console.error('=== EXCEPTION ===')
-    console.error('Error message:', error.message)
-    console.error('Error stack:', error.stack)
-    
-    return res.status(500).json({ 
-      error: 'Exception occurred',
-      message: error.message,
-      type: error.constructor.name
-    })
+    console.error('keep-alive: unexpected error:', error)
+    return res.status(500).json({ error: 'Keep-alive failed' })
   }
-}
-
-export const config = {
-  crons: ['0 12 * * *']
 }

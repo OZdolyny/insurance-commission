@@ -116,6 +116,22 @@ function Policies() {
       return
     }
 
+    const startDate = parseDateInput(formData.start_date)
+    if (!startDate) {
+      setError('Start date is not a valid date. Use dd/mm/yyyy.')
+      return
+    }
+
+    const endDate = formData.end_date ? parseDateInput(formData.end_date) : null
+    if (formData.end_date && !endDate) {
+      setError('End date is not a valid date. Use dd/mm/yyyy, or leave it empty.')
+      return
+    }
+    if (endDate && endDate < startDate) {
+      setError('End date cannot be before the start date.')
+      return
+    }
+
     try {
       const commissionAmount = calculateCommission()
 
@@ -125,14 +141,18 @@ function Policies() {
         insurance_policy_type: formData.insurance_policy_type,
         amount: parseFloat(formData.amount),
         paid_amount: parseFloat(formData.paid_amount),
-        start_date: parseDateInput(formData.start_date),
-        end_date: parseDateInput(formData.end_date) || null,
+        start_date: startDate,
+        end_date: endDate,
         policy_number: formData.policy_number || null,
         comment: formData.comment || null,
         commission_rate: formData.no_commission ? 0 : parseFloat(selectedRate.commission_rate),
         commission_amount: commissionAmount,
-        no_commission: formData.no_commission,
-        payment_status: 'pending'
+        no_commission: formData.no_commission
+      }
+
+      // Only new policies start as pending; editing must keep the existing payment status/date.
+      if (!editingId) {
+        policyData.payment_status = 'pending'
       }
 
       if (editingId) {
