@@ -53,6 +53,7 @@ CREATE TABLE client_policies (
   discount DECIMAL(12, 2) GENERATED ALWAYS AS (amount - paid_amount) STORED, -- Auto-calculated
   start_date DATE NOT NULL,
   end_date DATE,
+  policy_date DATE, -- contract date ("Дата укладення Договору")
   commission_rate DECIMAL(5, 4) NOT NULL,
   no_commission BOOLEAN DEFAULT FALSE, -- If true, commission_amount = 0
   commission_amount DECIMAL(12, 2) NOT NULL,
@@ -68,6 +69,7 @@ CREATE INDEX idx_client_policies_client_id ON client_policies(client_id);
 CREATE INDEX idx_client_policies_company ON client_policies(insurance_company_code);
 CREATE INDEX idx_client_policies_type ON client_policies(insurance_policy_type);
 CREATE INDEX idx_client_policies_status ON client_policies(payment_status);
+CREATE INDEX idx_client_policies_policy_date ON client_policies(policy_date);
 CREATE INDEX idx_policy_rates_company ON insurance_policy_rates(insurance_company_code);
 CREATE INDEX idx_policy_rates_type ON insurance_policy_rates(insurance_policy_type);
 

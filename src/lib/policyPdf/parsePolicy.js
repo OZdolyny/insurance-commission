@@ -30,6 +30,8 @@ export function parsePolicy(rows) {
     },
     startDate: toInputDate(lastDate(valueAfter(lines, /Дата та час початку строку дії/i))),
     endDate: toInputDate(firstDate(valueAfter(lines, /Дата закінчення строку дії/i))),
+    // Section 6: "6 | Дата укладення Договору | 07.09.2026" (the contract date)
+    policyDate: toInputDate(firstDate(valueAfter(lines, /Дата укладення Договору/i))),
     premium: parsePremium(lines),
     insurer: {
       name: parseInsurerName(lines, insurerStart),

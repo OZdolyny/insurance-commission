@@ -3,6 +3,7 @@ import {
   Users,
   FileText,
   Wallet,
+  BarChart3,
   Building2,
   Layers,
   Percent,
@@ -25,6 +26,7 @@ const navGroups = [
       { id: 'clients', label: 'Clients', icon: Users },
       { id: 'policies', label: 'Policies', icon: FileText },
       { id: 'commissions', label: 'Commissions', icon: Wallet },
+      { id: 'reports', label: 'Reports', icon: BarChart3 },
     ],
   },
   {

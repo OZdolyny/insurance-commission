@@ -7,6 +7,7 @@ import Commissions from './pages/Commissions'
 import Companies from './pages/Companies'
 import PolicyTypes from './pages/PolicyTypes'
 import PolicyRates from './pages/PolicyRates'
+import Reports from './pages/Reports'
 import { Sidebar } from './components/Sidebar'
 import { PolicyImport } from './components/PolicyImport'
 import { ThemeToggle } from './components/ThemeToggle'
@@ -23,6 +24,7 @@ const pageTitle = {
   clients: 'Clients',
   policies: 'Policies',
   commissions: 'Commissions',
+  reports: 'Reports',
   companies: 'Insurance Companies',
   'policy-types': 'Policy Types',
   'policy-rates': 'Commission Rates',
@@ -33,6 +35,7 @@ const pageDescription = {
   clients: 'People you insure and their contact details',
   policies: 'Every policy, with its dates and commission',
   commissions: 'What has been paid and what is still pending',
+  reports: 'Policies and commissions by period, company and type',
   companies: 'Insurers you work with',
   'policy-types': 'Kinds of insurance you sell',
   'policy-rates': 'Commission rate for each company and policy type',
@@ -43,6 +46,7 @@ const pages = {
   clients: Clients,
   policies: Policies,
   commissions: Commissions,
+  reports: Reports,
   companies: Companies,
   'policy-types': PolicyTypes,
   'policy-rates': PolicyRates,

@@ -78,6 +78,7 @@ describe('PolicyImportDialog', () => {
     expect(screen.getByLabelText('Policy Type *').value).toBe('CPV')
     expect(screen.getByLabelText('Policy Amount *').value).toBe('3221')
     expect(screen.getByLabelText('Start Date *').value).toBe('08/09/2026')
+    expect(screen.getByLabelText('Policy Date').value).toBe('07/09/2026')
     expect(screen.getByText('ЗАЗ Ланос, BC1234AA')).toBeTruthy()
 
     fireEvent.click(saveButton())
@@ -94,6 +95,7 @@ describe('PolicyImportDialog', () => {
       paid_amount: 3221,
       start_date: '2026-09-08',
       end_date: '2027-09-07',
+      policy_date: '2026-09-07',
       comment: 'ЗАЗ Ланос, BC1234AA',
       commission_rate: 0.15,
       commission_amount: 483.15,

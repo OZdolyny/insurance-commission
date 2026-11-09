@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 // Minimal hash router: URLs look like #/policies?client=12
 // Hash routes work on static hosting without server rewrites, and survive refresh and back/forward.
 
-export const PAGES = ['dashboard', 'clients', 'policies', 'commissions', 'companies', 'policy-types', 'policy-rates']
+export const PAGES = ['dashboard', 'clients', 'policies', 'commissions', 'reports', 'companies', 'policy-types', 'policy-rates']
 
 export function parseHash(hash) {
   const [path = '', query = ''] = String(hash || '').replace(/^#\/?/, '').split('?')

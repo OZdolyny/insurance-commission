@@ -214,6 +214,15 @@ When you create a policy:
 - The Overview page lists policies due for renewal in the next 30 days
 - Every page has its own URL (e.g. `#/policies?client=12`), so refresh and the back button work
 
+### Reports
+
+The **Reports** page lists full name, policy number, policy date, policy amount, commission, company and
+policy type, with totals. Filters: period (all time, year, month or custom range), company, policy type and
+"Exclude zero commission". **Export CSV** saves exactly the rows shown, in the table's order.
+
+The period uses the **policy date** (the contract date). Policies saved before this field existed have no
+policy date, so they are filtered by their start date instead.
+
 ### Importing a Policy from PDF
 
 **Upload PDF** at the top of the sidebar (available on every page) reads a motor third-party liability policy ("Автоцивілка", ОСЦПВ)
@@ -221,7 +230,7 @@ and opens a review dialog:
 
 - **Client:** matched to an existing client by name (or last name + phone). Existing clients show an
   **Edit** button that offers values from the policy (e.g. a new phone number); new clients show **Add client**.
-- **Policy:** number, company, policy type, premium, start and end dates are filled in and can be corrected.
+- **Policy:** number, company, policy type, premium, policy date ("Дата укладення Договору"), start and end dates are filled in and can be corrected.
 - **Comment:** the car brand, model and license plate, editable before saving.
 - A policy number that is already saved cannot be imported twice.
 

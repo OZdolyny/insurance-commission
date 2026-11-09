@@ -26,6 +26,7 @@ const emptyForm = {
   paid_amount: '',
   start_date: '',
   end_date: '',
+  policy_date: '',
   policy_number: '',
   comment: '',
   no_commission: false
@@ -169,6 +170,7 @@ function Policies({ params = {}, navigate }) {
       paid_amount: policy.paid_amount.toString(),
       start_date: formatDateInput(policy.start_date),
       end_date: policy.end_date ? formatDateInput(policy.end_date) : '',
+      policy_date: policy.policy_date ? formatDateInput(policy.policy_date) : '',
       policy_number: policy.policy_number || '',
       comment: policy.comment || '',
       no_commission: policy.no_commission || false
@@ -480,7 +482,22 @@ function Policies({ params = {}, navigate }) {
                 />
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label htmlFor="policy_date">Policy Date</Label>
+                  <Input
+                    id="policy_date"
+                    name="policy_date"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="dd/mm/yyyy"
+                    aria-describedby="policy_date_hint"
+                    value={formData.policy_date}
+                    onChange={(e) => setFormData({ ...formData, policy_date: maskDateInput(e.target.value) })}
+                  />
+                  <p id="policy_date_hint" className="text-xs text-muted-foreground">Date the contract was signed</p>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="start_date">Start Date *</Label>
                   <Input

@@ -26,6 +26,10 @@ export function buildPolicyData(form, { selectedRate, isNew }) {
   if (form.end_date && !endDate) return { error: 'End date is not a valid date. Use dd/mm/yyyy, or leave it empty.' }
   if (endDate && endDate < startDate) return { error: 'End date cannot be before the start date.' }
 
+  // Contract date: optional (older policies do not have it)
+  const policyDate = form.policy_date ? parseDateInput(form.policy_date) : null
+  if (form.policy_date && !policyDate) return { error: 'Policy date is not a valid date. Use dd/mm/yyyy, or leave it empty.' }
+
   const data = {
     client_id: parseInt(form.client_id),
     insurance_company_code: form.insurance_company_code,
@@ -34,6 +38,7 @@ export function buildPolicyData(form, { selectedRate, isNew }) {
     paid_amount: paidAmount,
     start_date: startDate,
     end_date: endDate,
+    policy_date: policyDate,
     policy_number: form.policy_number?.trim() || null,
     comment: form.comment?.trim() || null,
     commission_rate: form.no_commission ? 0 : parseFloat(selectedRate.commission_rate),

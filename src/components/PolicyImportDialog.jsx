@@ -86,6 +86,7 @@ export function PolicyImportDialog({ file, onClose, onSaved, clients, companies,
           paid_amount: result.premium,
           start_date: result.startDate,
           end_date: result.endDate,
+          policy_date: result.policyDate,
           no_commission: false,
           brand: result.vehicle.brand,
           model: result.vehicle.model,
@@ -434,13 +435,19 @@ export function PolicyImportDialog({ file, onClose, onSaved, clients, companies,
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="import-start">Start Date *</Label>
-                <Input id="import-start" inputMode="numeric" placeholder="dd/mm/yyyy" value={form.start_date} onChange={(e) => setField('start_date', maskDateInput(e.target.value))} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="import-end">End Date</Label>
-                <Input id="import-end" inputMode="numeric" placeholder="dd/mm/yyyy" value={form.end_date} onChange={(e) => setField('end_date', maskDateInput(e.target.value))} />
+              <div className="grid gap-3 sm:col-span-2 sm:grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="import-policy-date">Policy Date</Label>
+                  <Input id="import-policy-date" inputMode="numeric" placeholder="dd/mm/yyyy" value={form.policy_date} onChange={(e) => setField('policy_date', maskDateInput(e.target.value))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="import-start">Start Date *</Label>
+                  <Input id="import-start" inputMode="numeric" placeholder="dd/mm/yyyy" value={form.start_date} onChange={(e) => setField('start_date', maskDateInput(e.target.value))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="import-end">End Date</Label>
+                  <Input id="import-end" inputMode="numeric" placeholder="dd/mm/yyyy" value={form.end_date} onChange={(e) => setField('end_date', maskDateInput(e.target.value))} />
+                </div>
               </div>
             </div>
 

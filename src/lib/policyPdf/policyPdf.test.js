@@ -14,6 +14,7 @@ describe('parsePolicy', () => {
     expect(parsed.policyNumber).toBe('EP-200000001')
     expect(parsed.startDate).toBe('08/09/2026')
     expect(parsed.endDate).toBe('07/09/2027')
+    expect(parsed.policyDate).toBe('07/09/2026') // section 6, Дата укладення Договору
     expect(parsed.premium).toBe('3221')
     expect(parsed.isMotorLiability).toBe(true)
     expect(looksLikePolicy(parsed)).toBe(true)
