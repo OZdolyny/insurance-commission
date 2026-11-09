@@ -6,6 +6,7 @@ import { Badge } from './ui/Badge'
 import { Button } from './ui/Button'
 import { Input } from './ui/Input'
 import { Label } from './ui/Label'
+import { Textarea } from './ui/Textarea'
 import { Select } from './ui/Select'
 import { useToast } from './ui/Toast'
 import { extractPolicyRows } from '../lib/policyPdf/extractText'
@@ -36,9 +37,6 @@ function clientFromParsed(parsed) {
 }
 
 const fullName = (c) => [c.last_name, c.first_name, c.father_name].filter(Boolean).join(' ')
-
-const TEXTAREA_CLASS =
-  'flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring'
 
 // Upload result review: shows what was read from a policy PDF, lets the user fix it,
 // add or update the client, and save the policy.
@@ -323,13 +321,12 @@ export function PolicyImportDialog({ file, onClose, onSaved, clients, companies,
             {clientMode === 'view' && client && (
               <div className="space-y-1.5">
                 <Label htmlFor="import-client-comment">Client comment</Label>
-                <textarea
+                <Textarea
                   id="import-client-comment"
                   rows={2}
                   value={clientComment}
                   onChange={(e) => setClientComment(e.target.value)}
                   placeholder="Notes about this client"
-                  className={TEXTAREA_CLASS}
                 />
                 {clientComment.trim() !== (client.comment || '').trim() && (
                   <p className="text-xs text-muted-foreground">The changed comment is saved together with the policy.</p>
@@ -365,13 +362,12 @@ export function PolicyImportDialog({ file, onClose, onSaved, clients, companies,
                   ))}
                   <div className="space-y-1.5 sm:col-span-2">
                     <Label htmlFor="import-comment">Client comment</Label>
-                    <textarea
+                    <Textarea
                       id="import-comment"
                       rows={2}
                       value={clientForm.comment || ''}
                       onChange={(e) => setClientField('comment', e.target.value)}
                       placeholder="Notes about this client"
-                      className={TEXTAREA_CLASS}
                     />
                   </div>
                 </div>
@@ -467,12 +463,11 @@ export function PolicyImportDialog({ file, onClose, onSaved, clients, companies,
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="import-note">Extra note (optional)</Label>
-                <textarea
+                <Textarea
                   id="import-note"
                   rows={2}
                   value={form.note}
                   onChange={(e) => setField('note', e.target.value)}
-                  className={TEXTAREA_CLASS}
                 />
               </div>
               <div className="text-sm">

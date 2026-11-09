@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Label } from '../components/ui/Label'
+import { Textarea } from '../components/ui/Textarea'
 import { SearchInput } from '../components/ui/SearchInput'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, SortableTableHead } from '../components/ui/Table'
 import { useToast } from '../components/ui/Toast'
@@ -210,13 +211,12 @@ function Clients({ navigate }) {
 
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="comment">Comment</Label>
-                <textarea
+                <Textarea
                   id="comment"
                   name="comment"
                   value={formData.comment}
                   onChange={handleChange}
                   rows="3"
-                  className="flex min-h-[80px] w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
                 />
               </div>
 

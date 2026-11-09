@@ -96,16 +96,16 @@ function Dashboard({ navigate }) {
       </Card>
 
       {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted">
-                <Users className="h-6 w-6 text-muted-foreground" />
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                <Users className="h-5 w-5 text-primary" />
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Clients</p>
-                <p className="text-2xl font-bold">{stats.totalClients}</p>
+                <p className="text-2xl font-semibold tracking-tight tabular-nums">{stats.totalClients}</p>
               </div>
             </div>
           </CardContent>
@@ -114,12 +114,12 @@ function Dashboard({ navigate }) {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted">
-                <FileText className="h-6 w-6 text-muted-foreground" />
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                <FileText className="h-5 w-5 text-primary" />
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Policies</p>
-                <p className="text-2xl font-bold">{stats.totalPolicies}</p>
+                <p className="text-2xl font-semibold tracking-tight tabular-nums">{stats.totalPolicies}</p>
               </div>
             </div>
           </CardContent>
@@ -128,12 +128,12 @@ function Dashboard({ navigate }) {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted">
-                <TrendingUp className="h-6 w-6 text-muted-foreground" />
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                <TrendingUp className="h-5 w-5 text-primary" />
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Earned</p>
-                <p className="text-2xl font-bold">{formatAmount(stats.totalCommissions)}</p>
+                <p className="text-2xl font-semibold tracking-tight tabular-nums">{formatAmount(stats.totalCommissions)}</p>
               </div>
             </div>
           </CardContent>
@@ -142,12 +142,12 @@ function Dashboard({ navigate }) {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-success/10">
-                <CheckCircle2 className="h-6 w-6 text-success" />
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-success/10">
+                <CheckCircle2 className="h-5 w-5 text-success" />
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Paid</p>
-                <p className="text-2xl font-bold text-success">{formatAmount(stats.paidCommissions)}</p>
+                <p className="text-2xl font-semibold tracking-tight tabular-nums text-success">{formatAmount(stats.paidCommissions)}</p>
               </div>
             </div>
           </CardContent>
@@ -156,12 +156,12 @@ function Dashboard({ navigate }) {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-warning/10">
-                <Clock className="h-6 w-6 text-warning" />
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-warning/10">
+                <Clock className="h-5 w-5 text-warning" />
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Pending</p>
-                <p className="text-2xl font-bold text-warning">{formatAmount(stats.pendingCommissions)}</p>
+                <p className="text-2xl font-semibold tracking-tight tabular-nums text-warning">{formatAmount(stats.pendingCommissions)}</p>
               </div>
             </div>
           </CardContent>

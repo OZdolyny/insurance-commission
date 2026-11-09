@@ -188,12 +188,12 @@ function Commissions() {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted">
-                <TrendingUp className="h-6 w-6 text-muted-foreground" />
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                <TrendingUp className="h-5 w-5 text-primary" />
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Commissions</p>
-                <p className="text-2xl font-bold">{formatAmount(totals.total)}</p>
+                <p className="text-2xl font-semibold tracking-tight tabular-nums">{formatAmount(totals.total)}</p>
                 <p className="text-xs text-muted-foreground">{totals.count} policies</p>
               </div>
             </div>
@@ -203,12 +203,12 @@ function Commissions() {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-success/10">
-                <CheckCircle2 className="h-6 w-6 text-success" />
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-success/10">
+                <CheckCircle2 className="h-5 w-5 text-success" />
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Paid</p>
-                <p className="text-2xl font-bold text-success">{formatAmount(totals.paid)}</p>
+                <p className="text-2xl font-semibold tracking-tight tabular-nums text-success">{formatAmount(totals.paid)}</p>
                 <p className="text-xs text-muted-foreground">{totals.paidCount} policies</p>
               </div>
             </div>
@@ -218,12 +218,12 @@ function Commissions() {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-warning/10">
-                <Clock className="h-6 w-6 text-warning" />
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-warning/10">
+                <Clock className="h-5 w-5 text-warning" />
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Pending</p>
-                <p className="text-2xl font-bold text-warning">{formatAmount(totals.pending)}</p>
+                <p className="text-2xl font-semibold tracking-tight tabular-nums text-warning">{formatAmount(totals.pending)}</p>
                 <p className="text-xs text-muted-foreground">{totals.pendingCount} policies</p>
               </div>
             </div>

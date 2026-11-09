@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Label } from '../components/ui/Label'
+import { Textarea } from '../components/ui/Textarea'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table'
 import { useToast } from '../components/ui/Toast'
 import { useConfirm } from '../components/ui/ConfirmDialog'
@@ -186,13 +187,12 @@ function Companies() {
 
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="address">Address</Label>
-                <textarea
+                <Textarea
                   id="address"
                   name="address"
                   value={formData.address}
                   onChange={handleChange}
                   rows="2"
-                  className="flex min-h-[60px] w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
                 />
               </div>
 

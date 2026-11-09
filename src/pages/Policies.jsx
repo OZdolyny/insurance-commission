@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Label } from '../components/ui/Label'
+import { Textarea } from '../components/ui/Textarea'
 import { Select } from '../components/ui/Select'
 import { Badge } from '../components/ui/Badge'
 import { SearchInput } from '../components/ui/SearchInput'
@@ -469,13 +470,12 @@ function Policies({ params = {}, navigate }) {
 
               <div className="space-y-2">
                 <Label htmlFor="comment">Comment</Label>
-                <textarea
+                <Textarea
                   id="comment"
                   name="comment"
                   value={formData.comment}
                   onChange={handleChange}
                   rows={3}
-                  className="flex min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
                   placeholder="Add a note about this policy"
                 />
               </div>

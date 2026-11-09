@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { X } from 'lucide-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './Card'
+import { CardContent, CardDescription, CardHeader, CardTitle } from './Card'
 import { Button } from './Button'
 import { cn } from '../../lib/utils'
 
@@ -20,16 +20,19 @@ export function Dialog({ open, onClose, title, description, children, size = 'md
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
       onMouseDown={(e) => {
         if (closeOnBackdrop && e.target === e.currentTarget) onClose()
       }}
     >
-      <Card
+      <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={cn('max-h-[calc(100vh-2rem)] w-full overflow-y-auto', size === 'lg' ? 'max-w-3xl' : 'max-w-md')}
+        className={cn(
+          'max-h-[calc(100vh-2rem)] w-full overflow-y-auto rounded-xl border border-border bg-popover text-popover-foreground shadow-popover',
+          size === 'lg' ? 'max-w-3xl' : 'max-w-md'
+        )}
       >
         <CardHeader>
           <div className="flex items-center justify-between gap-4">
@@ -41,7 +44,7 @@ export function Dialog({ open, onClose, title, description, children, size = 'md
           {description && <CardDescription>{description}</CardDescription>}
         </CardHeader>
         <CardContent className="space-y-4">{children}</CardContent>
-      </Card>
+      </div>
     </div>
   )
 }

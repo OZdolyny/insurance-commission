@@ -39,8 +39,8 @@ export function ToastProvider({ children }) {
               key={toast.id}
               role={toast.type === 'error' ? 'alert' : 'status'}
               className={cn(
-                'pointer-events-auto flex w-full items-start gap-2 rounded-lg border bg-card p-4 text-sm shadow-lg',
-                toast.type === 'success' ? 'border-success/50 text-success' : 'border-destructive/50 text-destructive'
+                'pointer-events-auto flex w-full items-start gap-3 rounded-xl border bg-popover p-4 text-sm shadow-popover',
+                toast.type === 'success' ? 'border-success/30 text-success' : 'border-destructive/30 text-destructive'
               )}
             >
               <Icon className="mt-0.5 h-4 w-4 shrink-0" />
@@ -49,7 +49,7 @@ export function ToastProvider({ children }) {
                 type="button"
                 aria-label="Dismiss"
                 onClick={() => dismiss(toast.id)}
-                className="text-muted-foreground hover:text-foreground"
+                className="rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <X className="h-4 w-4" />
               </button>

@@ -1,7 +1,14 @@
 import clsx from 'clsx'
+import { extendTailwindMerge } from 'tailwind-merge'
+
+// tailwind-merge resolves conflicts, so a class passed in by a page wins over a component's default
+// (e.g. <Button className="p-0"> removes the button's padding). It also needs to know the app's own shadows.
+const twMerge = extendTailwindMerge({
+  extend: { theme: { shadow: ['card', 'popover'] } },
+})
 
 export function cn(...inputs) {
-  return clsx(inputs)
+  return twMerge(clsx(inputs))
 }
 
 export const MONTHS = [

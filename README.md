@@ -19,7 +19,20 @@ A comprehensive web application for insurance agents to manage multiple insuranc
 - **Frontend**: React + Vite
 - **Database**: Supabase (PostgreSQL)
 - **Hosting**: Vercel
-- **Styling**: Custom CSS
+- **Styling**: Tailwind CSS v4 with design tokens (light and dark themes)
+
+### Design System
+
+- **Colors** are defined once as tokens in `src/index.css` (`--primary`, `--muted-foreground`, `--success`, …)
+  for a light and a dark theme. Components use the token names (`bg-card`, `text-muted-foreground`), never raw
+  colors, so a new palette is a change in one file. Text colors meet WCAG AA contrast (4.5:1) and form field
+  borders 3:1 in both themes.
+- **Theme**: Light, Dark or System (follows the device), switched in the header and remembered per browser.
+  `index.html` applies it before the first paint, so there is no flash of the wrong colors.
+- **Brand**: indigo primary, slate neutrals, navy sidebar; Inter font with aligned digits for amounts.
+- **Components** live in `src/components/ui/` (Button, Card, Input, Select, Textarea, Table, Badge, Dialog, Toast).
+  `cn()` merges classes with `tailwind-merge`, so a page's `className` overrides a component's defaults.
+- **Accessibility**: visible keyboard focus, a "Skip to content" link, native selects, reduced motion respected.
 
 ## Database Structure
 

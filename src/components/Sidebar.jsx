@@ -2,12 +2,13 @@ import {
   LayoutDashboard,
   Users,
   FileText,
-  DollarSign,
+  Wallet,
   Building2,
   Layers,
   Percent,
-  ChevronLeft,
-  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  ShieldCheck,
   Upload,
   X,
 } from 'lucide-react'
@@ -15,15 +16,28 @@ import { useRef } from 'react'
 import { cn } from '../lib/utils'
 import { buildHash } from '../lib/router'
 
-const navItems = [
-  { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
-  { id: 'clients', label: 'Clients', icon: Users },
-  { id: 'policies', label: 'Policies', icon: FileText },
-  { id: 'commissions', label: 'Commissions', icon: DollarSign },
-  { id: 'companies', label: 'Companies', icon: Building2 },
-  { id: 'policy-types', label: 'Policy Types', icon: Layers },
-  { id: 'policy-rates', label: 'Rates', icon: Percent },
+// Daily work first, reference data (rarely changed) second
+const navGroups = [
+  {
+    label: 'Workspace',
+    items: [
+      { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
+      { id: 'clients', label: 'Clients', icon: Users },
+      { id: 'policies', label: 'Policies', icon: FileText },
+      { id: 'commissions', label: 'Commissions', icon: Wallet },
+    ],
+  },
+  {
+    label: 'Setup',
+    items: [
+      { id: 'companies', label: 'Companies', icon: Building2 },
+      { id: 'policy-types', label: 'Policy Types', icon: Layers },
+      { id: 'policy-rates', label: 'Rates', icon: Percent },
+    ],
+  },
 ]
+
+const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-primary focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar'
 
 // On desktop: fixed side panel that can collapse to icons.
 // On phones (< md): hidden drawer that slides in from the left.
@@ -35,50 +49,52 @@ export function Sidebar({ currentPage, collapsed, setCollapsed, mobileOpen, onMo
   return (
     <>
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 bg-black/60 md:hidden" onClick={onMobileClose} aria-hidden="true" />
+        <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden" onClick={onMobileClose} aria-hidden="true" />
       )}
 
       <aside
         className={cn(
-          'fixed left-0 top-0 z-50 flex h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar transition-all duration-300',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full',
-          'md:z-40 md:translate-x-0',
-          collapsed ? 'md:w-16' : 'md:w-64'
+          'fixed left-0 top-0 z-50 flex h-screen w-64 flex-col bg-sidebar text-sidebar-foreground transition-[width,transform] duration-300 md:border-r md:border-sidebar-border',
+          mobileOpen ? 'translate-x-0 shadow-popover' : '-translate-x-full',
+          'md:z-40 md:translate-x-0 md:shadow-none',
+          collapsed ? 'md:w-[4.5rem]' : 'md:w-64'
         )}
       >
-        {/* Header */}
-        <div className={cn(
-          'flex h-16 items-center border-b border-sidebar-border px-4',
-          compact ? 'md:justify-center' : 'justify-between'
-        )}>
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground">
-              <DollarSign className="h-5 w-5 text-background" />
-            </div>
-            <span className={cn('font-semibold text-sidebar-foreground', compact && 'md:hidden')}>CommissionPro</span>
-          </div>
+        {/* Brand */}
+        <div className={cn('flex h-16 shrink-0 items-center px-4', compact ? 'md:justify-center md:px-0' : 'justify-between')}>
+          <a href={buildHash('dashboard')} className={cn('flex items-center gap-2.5 rounded-lg', focusRing)}>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 shadow-sm shadow-indigo-950/40">
+              <ShieldCheck className="h-5 w-5 text-white" />
+            </span>
+            <span className={cn('leading-tight', compact && 'md:hidden')}>
+              <span className="block text-[15px] font-semibold tracking-tight">CommissionPro</span>
+              <span className="block text-xs text-sidebar-muted">Insurance tracker</span>
+            </span>
+          </a>
           <button
             type="button"
             aria-label="Close menu"
             onClick={onMobileClose}
-            className="rounded-lg p-2 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground md:hidden"
+            className={cn('rounded-lg p-2 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground md:hidden', focusRing)}
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Actions, kept apart from the page links below */}
-        <div className="border-b border-sidebar-border p-2">
+        {/* Primary action, kept apart from the page links */}
+        <div className={cn('px-3 pb-3', compact && 'md:px-3')}>
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             title={compact ? 'Upload policy PDF' : undefined}
+            aria-label={compact ? 'Upload policy PDF' : undefined}
             className={cn(
-              'flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90',
-              compact && 'md:px-2'
+              'flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90',
+              focusRing,
+              compact && 'md:px-0'
             )}
           >
-            <Upload className="h-5 w-5 shrink-0" />
+            <Upload className="h-[18px] w-[18px] shrink-0" />
             <span className={cn(compact && 'md:hidden')}>Upload PDF</span>
           </button>
           <input
@@ -95,45 +111,67 @@ export function Sidebar({ currentPage, collapsed, setCollapsed, mobileOpen, onMo
           />
         </div>
 
-        {/* Navigation */}
-        <nav aria-label="Pages" className="flex-1 space-y-1 overflow-y-auto p-2">
-          {navItems.map((item) => {
-            const Icon = item.icon
-            const isActive = currentPage === item.id
+        <div className="mx-3 border-t border-sidebar-border" />
 
-            return (
-              <a
-                key={item.id}
-                href={buildHash(item.id)}
-                aria-current={isActive ? 'page' : undefined}
+        {/* Navigation */}
+        <nav aria-label="Pages" className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
+          {navGroups.map((group) => (
+            <div key={group.label}>
+              <div
                 className={cn(
-                  'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                    : 'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                  compact && 'md:justify-center md:px-2'
+                  'mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-sidebar-muted/80',
+                  compact && 'md:sr-only'
                 )}
-                title={compact ? item.label : undefined}
               >
-                <Icon className={cn('h-5 w-5 shrink-0', isActive && 'text-foreground')} />
-                <span className={cn(compact && 'md:hidden')}>{item.label}</span>
-              </a>
-            )
-          })}
+                {group.label}
+              </div>
+              <ul className="space-y-0.5">
+                {group.items.map((item) => {
+                  const Icon = item.icon
+                  const isActive = currentPage === item.id
+                  return (
+                    <li key={item.id}>
+                      <a
+                        href={buildHash(item.id)}
+                        aria-current={isActive ? 'page' : undefined}
+                        title={compact ? item.label : undefined}
+                        className={cn(
+                          'group relative flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors',
+                          focusRing,
+                          isActive
+                            ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                            : 'text-sidebar-muted hover:bg-sidebar-accent/60 hover:text-sidebar-foreground',
+                          compact && 'md:justify-center md:px-0'
+                        )}
+                      >
+                        {isActive && (
+                          <span aria-hidden="true" className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-sidebar-primary" />
+                        )}
+                        <Icon className={cn('h-[18px] w-[18px] shrink-0', isActive && 'text-sidebar-primary')} />
+                        <span className={cn(compact && 'md:hidden')}>{item.label}</span>
+                      </a>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          ))}
         </nav>
 
         {/* Collapse toggle (desktop only) */}
-        <div className="hidden border-t border-sidebar-border p-2 md:block">
+        <div className="hidden border-t border-sidebar-border p-3 md:block">
           <button
             type="button"
             onClick={() => setCollapsed(!collapsed)}
-            className="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className={cn(
+              'flex h-9 w-full items-center justify-center gap-2 rounded-lg text-sm font-medium text-sidebar-muted transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground',
+              focusRing
+            )}
           >
-            {collapsed ? (
-              <ChevronRight className="h-5 w-5" />
-            ) : (
+            {collapsed ? <ChevronsRight className="h-4 w-4" /> : (
               <>
-                <ChevronLeft className="h-5 w-5" />
+                <ChevronsLeft className="h-4 w-4" />
                 <span>Collapse</span>
               </>
             )}

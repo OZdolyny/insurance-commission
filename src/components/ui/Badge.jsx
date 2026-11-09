@@ -1,20 +1,20 @@
 import { cn } from '../../lib/utils'
 
-export function Badge({ className, variant = 'default', children, ...props }) {
-  const variants = {
-    default: 'bg-primary text-primary-foreground',
-    secondary: 'bg-secondary text-secondary-foreground',
-    destructive: 'bg-destructive text-destructive-foreground',
-    outline: 'border border-border text-foreground',
-    success: 'bg-success/10 text-success border border-success/20',
-    warning: 'bg-warning/10 text-warning border border-warning/20',
-    error: 'bg-error/10 text-error border border-error/20',
-  }
+const variants = {
+  default: 'bg-primary/10 text-primary ring-primary/20',
+  secondary: 'bg-secondary text-secondary-foreground ring-border',
+  destructive: 'bg-destructive/10 text-destructive ring-destructive/25',
+  outline: 'bg-transparent text-foreground ring-border',
+  success: 'bg-success/10 text-success ring-success/25',
+  warning: 'bg-warning/10 text-warning ring-warning/25',
+  error: 'bg-destructive/10 text-destructive ring-destructive/25',
+}
 
+export function Badge({ className, variant = 'default', children, ...props }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors',
+        'inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset',
         variants[variant],
         className
       )}
