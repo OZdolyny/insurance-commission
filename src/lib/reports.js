@@ -15,6 +15,7 @@ export function toReportRow(policy) {
     reportDate: policy.policy_date || policy.start_date || null,
     amount: parseFloat(policy.amount) || 0,
     commission: parseFloat(policy.commission_amount) || 0,
+    paymentStatus: policy.payment_status || 'pending',
     companyCode: policy.insurance_company_code || '',
     companyName: policy.insurance_companies?.name || '',
     typeCode: policy.insurance_policy_type || '',
@@ -22,13 +23,14 @@ export function toReportRow(policy) {
   }
 }
 
-// filters: { matchesPeriod(row) -> bool, excludeZero, company, type }
-export function filterReportRows(rows, { matchesPeriod = () => true, excludeZero = false, company = '', type = '' } = {}) {
+// filters: { matchesPeriod(row) -> bool, excludeZero, company, type, status: '' | 'paid' | 'pending' }
+export function filterReportRows(rows, { matchesPeriod = () => true, excludeZero = false, company = '', type = '', status = '' } = {}) {
   return rows.filter((row) =>
     matchesPeriod(row) &&
     (!excludeZero || row.commission > 0) &&
     (!company || row.companyCode === company) &&
-    (!type || row.typeCode === type)
+    (!type || row.typeCode === type) &&
+    (!status || row.paymentStatus === status)
   )
 }
 

@@ -55,3 +55,24 @@ describe('reportTotals and CSV', () => {
     expect(csv[2]).toContain(',EP-1,,2416.00,0.00,') // empty policy date stays empty
   })
 })
+
+describe('commission status filter', () => {
+  const withStatus = [
+    toReportRow(policy({ id: 21, payment_status: 'paid' })),
+    toReportRow(policy({ id: 22, payment_status: 'pending' })),
+    toReportRow(policy({ id: 23, payment_status: undefined })), // missing status counts as pending, like the database default
+  ]
+
+  it('keeps all rows when no status is chosen', () => {
+    expect(filterReportRows(withStatus, { status: '' }).map((r) => r.id)).toEqual([21, 22, 23])
+  })
+
+  it('keeps only paid or only pending rows', () => {
+    expect(filterReportRows(withStatus, { status: 'paid' }).map((r) => r.id)).toEqual([21])
+    expect(filterReportRows(withStatus, { status: 'pending' }).map((r) => r.id)).toEqual([22, 23])
+  })
+
+  it('combines with the other filters', () => {
+    expect(filterReportRows(withStatus, { status: 'pending', company: 'ARS' })).toEqual([])
+  })
+})

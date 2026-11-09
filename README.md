@@ -217,7 +217,8 @@ When you create a policy:
 ### Reports
 
 The **Reports** page lists full name, policy number, policy date, policy amount, commission, company and
-policy type, with totals. Filters: period (all time, year, month or custom range), company, policy type and
+policy type, with totals. Filters: period (all time, year, month or custom range), commission status (all, paid, pending),
+company, policy type and
 "Exclude zero commission". **Export CSV** saves exactly the rows shown, in the table's order.
 
 The period uses the **policy date** (the contract date). Policies saved before this field existed have no

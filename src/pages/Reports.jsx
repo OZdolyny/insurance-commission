@@ -34,6 +34,7 @@ function Reports({ navigate }) {
   const [company, setCompany] = useState('')
   const [type, setType] = useState('')
   const [excludeZero, setExcludeZero] = useState(false)
+  const [status, setStatus] = useState('') // commission status: '' (all) | 'paid' | 'pending'
 
   const period = usePeriodFilter(rows, 'reportDate')
 
@@ -49,7 +50,7 @@ function Reports({ navigate }) {
         supabase
           .from('client_policies')
           .select(`
-            id, client_id, policy_number, policy_date, start_date, amount, commission_amount,
+            id, client_id, policy_number, policy_date, start_date, amount, commission_amount, payment_status,
             insurance_company_code, insurance_policy_type,
             clients (first_name, last_name, father_name),
             insurance_companies (name),
@@ -71,7 +72,14 @@ function Reports({ navigate }) {
     }
   }
 
-  const filtered = filterReportRows(rows, { matchesPeriod: period.matches, excludeZero, company, type })
+  // Rows matching every filter except the status, for the counts on the status buttons
+  const beforeStatus = filterReportRows(rows, { matchesPeriod: period.matches, excludeZero, company, type })
+  const filtered = filterReportRows(beforeStatus, { status })
+  const statusOptions = [
+    { value: '', label: 'All', count: beforeStatus.length },
+    { value: 'paid', label: 'Paid', count: beforeStatus.filter((r) => r.paymentStatus === 'paid').length },
+    { value: 'pending', label: 'Pending', count: beforeStatus.filter((r) => r.paymentStatus === 'pending').length },
+  ]
   const table = useTableControls(filtered, {
     searchText: () => '',
     sorters,
@@ -79,12 +87,13 @@ function Reports({ navigate }) {
   })
   const totals = reportTotals(table.rows)
 
-  const filtersActive = period.type !== 'all' || excludeZero || company || type
+  const filtersActive = period.type !== 'all' || excludeZero || company || type || status
   const resetFilters = () => {
     period.setType('all')
     setExcludeZero(false)
     setCompany('')
     setType('')
+    setStatus('')
   }
 
   const exportCsv = () => {
@@ -127,6 +136,23 @@ function Reports({ navigate }) {
           <div className="space-y-2">
             <span className="text-sm font-medium">Period</span>
             <PeriodFilter filter={period} allowCustom />
+          </div>
+
+          <div className="space-y-2">
+            <span id="report-status-label" className="text-sm font-medium">Commission status</span>
+            <div role="group" aria-labelledby="report-status-label" className="flex flex-wrap gap-2">
+              {statusOptions.map((option) => (
+                <Button
+                  key={option.value || 'all'}
+                  variant={status === option.value ? 'default' : 'secondary'}
+                  size="sm"
+                  aria-pressed={status === option.value}
+                  onClick={() => setStatus(option.value)}
+                >
+                  {option.label} ({option.count})
+                </Button>
+              ))}
+            </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
