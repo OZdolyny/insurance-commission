@@ -242,10 +242,15 @@ may need small adjustments.
 
 ### Telegram Renewal Reminders
 
-Every morning (05:00 UTC, about 07:00–08:00 in Kyiv) a Vercel Cron job (`api/renewal-reminders.js`) sends one
+Every day at 10:00 Kyiv time a Vercel Cron job (`api/renewal-reminders.js`) sends one
 Telegram message listing policies that end in 30, 7 or 1 days, today, or ended in the last 3 days without
 renewal. Each policy is reminded once per point; if a run is missed, the next one catches up, and failed
 sends are retried (up to 5 times).
+
+Vercel schedules in UTC, and Kyiv is UTC+2 in winter and UTC+3 in summer, so `vercel.json` runs the job at
+07:00 and 08:00 UTC; only the run that falls in the 10:00 hour in Kyiv sends (on the Hobby plan a run may
+start anytime within its hour, e.g. 10:00–10:59). To change the time, update `DELIVERY_HOUR_KYIV` in the job
+and the two cron entries together.
 
 Reminders stop for a policy when it is marked **Renewed** or **Won't renew** (buttons in Overview → Upcoming
 Renewals, or the Renewal field when editing a policy), or when the same client has a newer policy of the same

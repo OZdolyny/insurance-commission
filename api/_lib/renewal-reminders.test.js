@@ -78,16 +78,45 @@ function seed() {
   }
 }
 
-async function run({ query = {}, auth = 'Bearer s3cret', envOverrides = {}, tables = seed(), send = vi.fn(async () => ({})) } = {}) {
+async function run({
+  query = {}, auth = 'Bearer s3cret', envOverrides = {}, tables = seed(), send = vi.fn(async () => ({})),
+  now = NOW, userAgent,
+} = {}) {
   const db = fakeSupabase(tables)
   const res = response()
   await handler(
-    { headers: { authorization: auth }, query },
+    { headers: { authorization: auth, ...(userAgent && { 'user-agent': userAgent }) }, query },
     res,
-    { env: { ...env, ...envOverrides }, now: NOW, supabase: db.client, send, pause: async () => {} }
+    { env: { ...env, ...envOverrides }, now, supabase: db.client, send, pause: async () => {} }
   )
   return { res, send, db, tables }
 }
+
+describe('delivery time (10:00 Kyiv)', () => {
+  const cron = 'vercel-cron/1.0'
+
+  it('sends from the scheduled run that falls at 10:xx Kyiv time, in winter and summer', async () => {
+    const winter = await run({ userAgent: cron, now: new Date('2026-11-09T08:00:00Z') }) // 10:00 Kyiv (UTC+2)
+    expect(winter.res.body).toMatchObject({ sent: 1 })
+
+    const summerTables = seed()
+    summerTables.client_policies[0].end_date = '2026-07-22'
+    const summer = await run({ userAgent: cron, now: new Date('2026-07-15T07:45:00Z'), tables: summerTables }) // 10:45 (UTC+3)
+    expect(summer.res.body).toMatchObject({ sent: 1 })
+  })
+
+  it('skips the other scheduled run without reading or sending anything', async () => {
+    const { res, send, db } = await run({ userAgent: cron, now: new Date('2026-11-09T07:00:00Z') }) // 09:00 Kyiv
+    expect(res.body).toEqual({ skipped: 'Outside the delivery hour', kyivHour: 9 })
+    expect(send).not.toHaveBeenCalled()
+    expect(db.writes).toEqual([])
+  })
+
+  it('does not limit manual runs', async () => {
+    const { res } = await run({ now: new Date('2026-11-09T07:00:00Z'), userAgent: 'curl/8.0' })
+    expect(res.body).toMatchObject({ sent: 1 })
+  })
+})
 
 describe('renewal-reminders job', () => {
   it('rejects calls without the cron secret, and refuses to run without one', async () => {

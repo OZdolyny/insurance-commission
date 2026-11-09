@@ -23,6 +23,12 @@ export function kyivToday(now = new Date()) {
   }).format(now)
 }
 
+// Current hour (0-23) in Kyiv, including summer time
+export function kyivHour(now = new Date()) {
+  const hour = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Kyiv', hour: '2-digit', hourCycle: 'h23' }).format(now)
+  return Number(hour)
+}
+
 export function addDays(isoDate, days) {
   const [y, m, d] = isoDate.split('-').map(Number)
   const date = new Date(Date.UTC(y, m - 1, d + days))

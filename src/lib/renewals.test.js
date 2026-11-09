@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   addDays, daysBetween, dueOffset, escapeHtml, findRenewal, formatDigest, internationalPhone,
-  kyivToday, planReminders, remindersActive,
+  kyivHour, kyivToday, planReminders, remindersActive,
 } from './renewals'
 
 const TODAY = '2026-11-09'
@@ -27,6 +27,14 @@ describe('dates', () => {
     expect(kyivToday(new Date('2026-11-08T21:30:00Z'))).toBe('2026-11-08') // 23:30 in Kyiv
     expect(kyivToday(new Date('2026-11-08T22:30:00Z'))).toBe('2026-11-09') // 00:30 in Kyiv
     expect(kyivToday(new Date('2026-07-01T21:30:00Z'))).toBe('2026-07-02') // summer time: 00:30
+  })
+
+  it('gives the Kyiv hour, so 07:00 UTC in summer and 08:00 UTC in winter are both 10:00', () => {
+    expect(kyivHour(new Date('2026-07-15T07:30:00Z'))).toBe(10) // summer, UTC+3
+    expect(kyivHour(new Date('2026-07-15T08:30:00Z'))).toBe(11)
+    expect(kyivHour(new Date('2026-12-15T08:59:00Z'))).toBe(10) // winter, UTC+2
+    expect(kyivHour(new Date('2026-12-15T07:30:00Z'))).toBe(9)
+    expect(kyivHour(new Date('2026-12-15T22:00:00Z'))).toBe(0)
   })
 
   it('adds days across months and leap years', () => {

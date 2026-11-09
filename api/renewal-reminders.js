@@ -1,6 +1,6 @@
 // api/renewal-reminders.js
-// Daily job (Vercel Cron, see vercel.json): sends one Telegram message listing the policies
-// that end soon (30, 7, 1, 0 days before) or ended without renewal.
+// Daily job (Vercel Cron, see vercel.json): at 10:00 Kyiv time, sends one Telegram message listing
+// the policies that end soon (30, 7, 1, 0 days before) or ended without renewal.
 //
 // Environment variables (Vercel > Settings > Environment Variables, server-side only):
 //   CRON_SECRET               required; Vercel Cron sends it as "Authorization: Bearer ..."
@@ -15,8 +15,13 @@
 //   ?test=1  send a short test message to check the bot settings
 
 import { createClient } from '@supabase/supabase-js'
-import { addDays, formatDigest, kyivToday, planReminders } from '../src/lib/renewals.js'
+import { addDays, formatDigest, kyivHour, kyivToday, planReminders } from '../src/lib/renewals.js'
 import { sendTelegramMessage, TelegramError } from './_lib/telegram.js'
+
+// Reminders arrive at 10:00 Kyiv time all year. Vercel Cron only knows UTC, and Kyiv is UTC+2 in
+// winter and UTC+3 in summer, so vercel.json runs the job at 07:00 and 08:00 UTC and the run
+// that falls in this Kyiv hour sends. To change the time, update both this and the two cron entries.
+const DELIVERY_HOUR_KYIV = 10
 
 const KIND = 'renewal'
 const CHANNEL = 'telegram'
@@ -35,6 +40,13 @@ export default async function handler(req, res, deps = {}) {
   if (!env.CRON_SECRET) return res.status(500).json({ error: 'CRON_SECRET is not set' })
   if (req.headers.authorization !== `Bearer ${env.CRON_SECRET}`) {
     return res.status(401).json({ error: 'Unauthorized' })
+  }
+
+  // Scheduled runs come twice a day (07:00 and 08:00 UTC); only the one at 10:xx Kyiv time sends.
+  // Manual runs (curl, ?dry=1, ?test=1) are not limited.
+  const scheduled = /vercel-cron/i.test(req.headers['user-agent'] || '')
+  if (scheduled && kyivHour(now) !== DELIVERY_HOUR_KYIV) {
+    return res.status(200).json({ skipped: 'Outside the delivery hour', kyivHour: kyivHour(now) })
   }
 
   const dryRun = req.query?.dry === '1' || env.TELEGRAM_DRY_RUN === '1'
