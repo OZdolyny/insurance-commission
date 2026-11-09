@@ -8,6 +8,7 @@ import Companies from './pages/Companies'
 import PolicyTypes from './pages/PolicyTypes'
 import PolicyRates from './pages/PolicyRates'
 import { Sidebar } from './components/Sidebar'
+import { PolicyImport } from './components/PolicyImport'
 import { ToastProvider } from './components/ui/Toast'
 import { ConfirmProvider } from './components/ui/ConfirmDialog'
 import { supabaseConfigError } from './lib/supabase'
@@ -53,6 +54,10 @@ function App() {
   const { page, params, navigate } = useHashRoute()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  // Policy PDF chosen with the sidebar's "Upload PDF"
+  const [importFile, setImportFile] = useState(null)
+  // Bumped after an import is saved, so the open page reloads its data
+  const [refreshKey, setRefreshKey] = useState(0)
 
   // Close the phone menu after navigating
   useEffect(() => {
@@ -86,7 +91,24 @@ function App() {
             setCollapsed={setSidebarCollapsed}
             mobileOpen={mobileNavOpen}
             onMobileClose={() => setMobileNavOpen(false)}
+            onUploadPdf={(file) => {
+              setMobileNavOpen(false)
+              setImportFile(file)
+            }}
           />
+
+          {importFile && (
+            <PolicyImport
+              file={importFile}
+              onClose={() => setImportFile(null)}
+              onSaved={() => {
+                setImportFile(null)
+                // Show the saved policy: open Policies, reloading it if it is already open
+                setRefreshKey((k) => k + 1)
+                navigate('policies')
+              }}
+            />
+          )}
 
           <main
             className={cn(
@@ -108,7 +130,7 @@ function App() {
 
             <div className="p-4 md:p-6">
               {/* key resets page state when the route's parameters change */}
-              <Page key={`${page}?${new URLSearchParams(params)}`} params={params} navigate={navigate} />
+              <Page key={`${page}?${new URLSearchParams(params)}#${refreshKey}`} params={params} navigate={navigate} />
             </div>
           </main>
         </div>

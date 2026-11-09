@@ -203,7 +203,7 @@ When you create a policy:
 
 ### Importing a Policy from PDF
 
-On the Policies page, **Upload PDF** reads a motor third-party liability policy ("Автоцивілка", ОСЦПВ)
+**Upload PDF** at the top of the sidebar (available on every page) reads a motor third-party liability policy ("Автоцивілка", ОСЦПВ)
 and opens a review dialog:
 
 - **Client:** matched to an existing client by name (or last name + phone). Existing clients show an

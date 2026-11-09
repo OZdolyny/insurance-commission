@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -15,11 +15,7 @@ import { daysUntil, formatAmount, formatDate, formatDateInput, maskDateInput } f
 import { calculateCommission, formatRate } from '../lib/commission'
 import { buildPolicyData } from '../lib/policyForm'
 import { friendlyError } from '../lib/errors'
-import { PolicyImportDialog } from '../components/PolicyImportDialog'
-import { Plus, AlertCircle, FileText, Pencil, Trash2, X, Upload } from 'lucide-react'
-
-// Client fields the policy form and the PDF import (client matching) need
-const CLIENT_COLUMNS = 'id, first_name, last_name, father_name, phone_number, email'
+import { Plus, AlertCircle, FileText, Pencil, Trash2, X } from 'lucide-react'
 
 const emptyForm = {
   client_id: '',
@@ -69,8 +65,6 @@ function Policies({ params = {}, navigate }) {
   const [showForm, setShowForm] = useState(false)
   const [expirationFilter, setExpirationFilter] = useState('all')
   const [formData, setFormData] = useState(emptyForm)
-  const [importFile, setImportFile] = useState(null)
-  const fileInputRef = useRef(null)
   // Rate the policy being edited was saved with, so editing keeps it instead of picking up today's rate
   const [originalRate, setOriginalRate] = useState(null)
 
@@ -93,16 +87,10 @@ function Policies({ params = {}, navigate }) {
     ? null
     : keepsOriginalRate ? originalRate : currentTableRate
 
-  // After the import dialog adds or edits a client
-  const reloadClients = async () => {
-    const { data, error } = await supabase.from('clients').select(CLIENT_COLUMNS).order('first_name')
-    if (!error) setClients(data || [])
-  }
-
   const fetchData = async () => {
     try {
       const results = await Promise.all([
-        supabase.from('clients').select(CLIENT_COLUMNS).order('first_name'),
+        supabase.from('clients').select('id, first_name, last_name').order('first_name'),
         supabase.from('insurance_companies').select('code, name').order('name'),
         supabase.from('insurance_policy_types').select('type, name').order('name'),
         supabase.from('insurance_policy_rates').select('*'),
@@ -277,21 +265,6 @@ function Policies({ params = {}, navigate }) {
         </div>
         <div className="flex w-full flex-wrap gap-2 sm:w-auto">
           <SearchInput value={table.query} onChange={table.setQuery} placeholder="Search policies" />
-          <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
-            <Upload className="h-4 w-4" />
-            Upload PDF
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,application/pdf,.p7s,application/pkcs7-mime"
-            className="hidden"
-            aria-label="Upload policy PDF"
-            onChange={(e) => {
-              setImportFile(e.target.files?.[0] || null)
-              e.target.value = '' // allow choosing the same file again
-            }}
-          />
           {!showForm && (
             <Button onClick={openNewForm}>
               <Plus className="h-4 w-4" />
@@ -300,23 +273,6 @@ function Policies({ params = {}, navigate }) {
           )}
         </div>
       </div>
-
-      {importFile && (
-        <PolicyImportDialog
-          file={importFile}
-          onClose={() => setImportFile(null)}
-          onSaved={() => {
-            setImportFile(null)
-            fetchData()
-          }}
-          clients={clients}
-          companies={companies}
-          policyTypes={policyTypes}
-          policyRates={policyRates}
-          policies={policies}
-          reloadClients={reloadClients}
-        />
-      )}
 
       {clientFilter && (
         <div className="flex flex-wrap items-center gap-2 text-sm">

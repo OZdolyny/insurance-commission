@@ -8,8 +8,10 @@ import {
   Percent,
   ChevronLeft,
   ChevronRight,
+  Upload,
   X,
 } from 'lucide-react'
+import { useRef } from 'react'
 import { cn } from '../lib/utils'
 import { buildHash } from '../lib/router'
 
@@ -25,9 +27,10 @@ const navItems = [
 
 // On desktop: fixed side panel that can collapse to icons.
 // On phones (< md): hidden drawer that slides in from the left.
-export function Sidebar({ currentPage, collapsed, setCollapsed, mobileOpen, onMobileClose }) {
+export function Sidebar({ currentPage, collapsed, setCollapsed, mobileOpen, onMobileClose, onUploadPdf }) {
   // The collapsed (icons-only) look only applies on desktop
   const compact = collapsed && !mobileOpen
+  const fileInputRef = useRef(null)
 
   return (
     <>
@@ -64,8 +67,36 @@ export function Sidebar({ currentPage, collapsed, setCollapsed, mobileOpen, onMo
           </button>
         </div>
 
+        {/* Actions, kept apart from the page links below */}
+        <div className="border-b border-sidebar-border p-2">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            title={compact ? 'Upload policy PDF' : undefined}
+            className={cn(
+              'flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90',
+              compact && 'md:px-2'
+            )}
+          >
+            <Upload className="h-5 w-5 shrink-0" />
+            <span className={cn(compact && 'md:hidden')}>Upload PDF</span>
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,application/pdf,.p7s,application/pkcs7-mime"
+            className="hidden"
+            aria-label="Upload policy PDF"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              e.target.value = '' // allow choosing the same file again
+              if (file) onUploadPdf(file)
+            }}
+          />
+        </div>
+
         {/* Navigation */}
-        <nav className="flex-1 space-y-1 overflow-y-auto p-2">
+        <nav aria-label="Pages" className="flex-1 space-y-1 overflow-y-auto p-2">
           {navItems.map((item) => {
             const Icon = item.icon
             const isActive = currentPage === item.id
