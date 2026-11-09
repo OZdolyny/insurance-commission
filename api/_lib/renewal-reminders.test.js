@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from 'vitest'
-import handler from '../renewal-reminders.js'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { GET, runReminders } from '../renewal-reminders.js'
+import { GET as keepAlive } from '../keep-alive.js'
 import { sendTelegramMessage, TelegramError } from './telegram.js'
 
 // ---- Small in-memory stand-in for the Supabase client ----
@@ -45,13 +46,6 @@ function fakeSupabase(tables) {
   return { client: { from }, writes }
 }
 
-function response() {
-  const res = { statusCode: null, body: null }
-  res.status = (code) => ((res.statusCode = code), res)
-  res.json = (body) => ((res.body = body), res)
-  return res
-}
-
 const env = {
   CRON_SECRET: 's3cret',
   VITE_SUPABASE_URL: 'https://example.supabase.co',
@@ -83,14 +77,44 @@ async function run({
   now = NOW, userAgent,
 } = {}) {
   const db = fakeSupabase(tables)
-  const res = response()
-  await handler(
-    { headers: { authorization: auth, ...(userAgent && { 'user-agent': userAgent }) }, query },
-    res,
-    { env: { ...env, ...envOverrides }, now, supabase: db.client, send, pause: async () => {} }
-  )
-  return { res, send, db, tables }
+  const { status, body } = await runReminders({
+    headers: { authorization: auth, ...(userAgent && { 'user-agent': userAgent }) },
+    query,
+    env: { ...env, ...envOverrides },
+    now,
+    supabase: db.client,
+    send,
+    pause: async () => {},
+  })
+  return { res: { statusCode: status, body }, send, db, tables }
 }
+
+describe('HTTP entry points (Web Request/Response)', () => {
+  afterEach(() => vi.unstubAllEnvs())
+
+  it('renewal-reminders GET answers JSON and checks the secret from the request headers', async () => {
+    vi.stubEnv('CRON_SECRET', 's3cret')
+    const denied = await GET(new Request('https://app.example.com/api/renewal-reminders?dry=1'))
+    expect(denied.status).toBe(401)
+    expect(await denied.json()).toEqual({ error: 'Unauthorized' })
+  })
+
+  it('reads query parameters through the standard URL API', async () => {
+    vi.stubEnv('CRON_SECRET', 's3cret')
+    vi.stubEnv('VITE_SUPABASE_URL', '')
+    const response = await GET(new Request('https://app.example.com/api/renewal-reminders?dry=1', {
+      headers: { Authorization: 'Bearer s3cret' },
+    }))
+    // dry=1 was understood: the Telegram settings are not required in dry-run mode
+    expect(await response.json()).toEqual({ error: 'Missing environment variables: VITE_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY' })
+  })
+
+  it('keep-alive GET checks the secret too', async () => {
+    vi.stubEnv('CRON_SECRET', 's3cret')
+    const denied = await keepAlive(new Request('https://app.example.com/api/keep-alive'))
+    expect(denied.status).toBe(401)
+  })
+})
 
 describe('delivery time (10:00 Kyiv)', () => {
   const cron = 'vercel-cron/1.0'

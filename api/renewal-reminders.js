@@ -30,26 +30,42 @@ const LOOK_BACK_DAYS = 3
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-export default async function handler(req, res, deps = {}) {
+// Vercel calls this for GET /api/renewal-reminders (cron runs and manual checks).
+// It uses the Web-standard Request/Response signature: the older (req, res) style makes Vercel
+// parse the URL with Node's deprecated url.parse(), which logs a DEP0169 warning on every run.
+export async function GET(request) {
+  const url = new URL(request.url)
+  const { status, body } = await runReminders({
+    headers: Object.fromEntries(request.headers), // header names are lower-case
+    query: Object.fromEntries(url.searchParams),
+  })
+  return Response.json(body, { status })
+}
+
+const reply = (status, body) => ({ status, body })
+
+// The job itself, kept apart from HTTP so tests can call it with fake services.
+// Returns { status, body }.
+export async function runReminders({ headers = {}, query = {}, ...deps } = {}) {
   const env = deps.env || process.env
   const now = deps.now || new Date()
   const send = deps.send || sendTelegramMessage
   const pause = deps.pause || sleep
 
   // Without a secret anyone could trigger messages, so it is required here
-  if (!env.CRON_SECRET) return res.status(500).json({ error: 'CRON_SECRET is not set' })
-  if (req.headers.authorization !== `Bearer ${env.CRON_SECRET}`) {
-    return res.status(401).json({ error: 'Unauthorized' })
+  if (!env.CRON_SECRET) return reply(500, { error: 'CRON_SECRET is not set' })
+  if (headers.authorization !== `Bearer ${env.CRON_SECRET}`) {
+    return reply(401, { error: 'Unauthorized' })
   }
 
   // Scheduled runs come twice a day (07:00 and 08:00 UTC); only the one at 10:xx Kyiv time sends.
   // Manual runs (curl, ?dry=1, ?test=1) are not limited.
-  const scheduled = /vercel-cron/i.test(req.headers['user-agent'] || '')
+  const scheduled = /vercel-cron/i.test(headers['user-agent'] || '')
   if (scheduled && kyivHour(now) !== DELIVERY_HOUR_KYIV) {
-    return res.status(200).json({ skipped: 'Outside the delivery hour', kyivHour: kyivHour(now) })
+    return reply(200, { skipped: 'Outside the delivery hour', kyivHour: kyivHour(now) })
   }
 
-  const dryRun = req.query?.dry === '1' || env.TELEGRAM_DRY_RUN === '1'
+  const dryRun = query.dry === '1' || env.TELEGRAM_DRY_RUN === '1'
   const telegram = { token: env.TELEGRAM_BOT_TOKEN, chatId: env.TELEGRAM_CHAT_ID }
 
   const missing = [
@@ -59,13 +75,13 @@ export default async function handler(req, res, deps = {}) {
     !dryRun && !telegram.chatId && 'TELEGRAM_CHAT_ID',
   ].filter(Boolean)
   if (missing.length) {
-    return res.status(500).json({ error: `Missing environment variables: ${missing.join(', ')}` })
+    return reply(500, { error: `Missing environment variables: ${missing.join(', ')}` })
   }
 
   try {
-    if (req.query?.test === '1') {
+    if (query.test === '1') {
       await send('✅ <b>CommissionPro</b>: Telegram reminders are set up.', telegram)
-      return res.status(200).json({ test: 'sent' })
+      return reply(200, { test: 'sent' })
     }
 
     const supabase = deps.supabase || createClient(env.VITE_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
@@ -86,7 +102,7 @@ export default async function handler(req, res, deps = {}) {
       .lte('end_date', addDays(today, LOOK_AHEAD_DAYS))
     if (policiesError) throw policiesError
 
-    if (!policies.length) return res.status(200).json({ today, due: 0, sent: 0 })
+    if (!policies.length) return reply(200, { today, due: 0, sent: 0 })
 
     // 2. The same clients' other policies (to spot renewals) and the reminders already logged
     const [othersResult, notificationsResult] = await Promise.all([
@@ -110,11 +126,11 @@ export default async function handler(req, res, deps = {}) {
       notifications: notificationsResult.data,
       today,
     })
-    if (!plan.length) return res.status(200).json({ today, due: 0, sent: 0 })
+    if (!plan.length) return reply(200, { today, due: 0, sent: 0 })
 
     const messages = formatDigest(plan, { today, appUrl: env.APP_URL })
     if (dryRun) {
-      return res.status(200).json({ today, dryRun: true, due: plan.length, messages: messages.map((m) => m.text) })
+      return reply(200, { today, dryRun: true, due: plan.length, messages: messages.map((m) => m.text) })
     }
 
     // 3. Log new reminders before sending; the unique constraint blocks duplicates if two runs overlap
@@ -166,9 +182,9 @@ export default async function handler(req, res, deps = {}) {
 
     // Counts only: no client details in responses or logs
     if (failed) console.error(`renewal-reminders: ${failed} reminder(s) not sent: ${lastError}`)
-    return res.status(failed && !sent ? 502 : 200).json({ today, due: plan.length, sent, failed, ...(lastError && { error: lastError }) })
+    return reply(failed && !sent ? 502 : 200, { today, due: plan.length, sent, failed, ...(lastError && { error: lastError }) })
   } catch (error) {
     console.error('renewal-reminders failed:', error?.message || error)
-    return res.status(500).json({ error: error instanceof TelegramError ? error.message : 'Reminder job failed' })
+    return reply(500, { error: error instanceof TelegramError ? error.message : 'Reminder job failed' })
   }
 }
