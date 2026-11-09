@@ -31,10 +31,14 @@ function clientFromParsed(parsed) {
     father_name: parsed.client.fatherName,
     phone_number: parsed.client.phone,
     email: parsed.client.email,
+    comment: '', // not in the policy; the user can add one
   }
 }
 
 const fullName = (c) => [c.last_name, c.first_name, c.father_name].filter(Boolean).join(' ')
+
+const TEXTAREA_CLASS =
+  'flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring'
 
 // Upload result review: shows what was read from a policy PDF, lets the user fix it,
 // add or update the client, and save the policy.
@@ -49,6 +53,8 @@ export function PolicyImportDialog({ file, onClose, onSaved, clients, companies,
   const [clientMode, setClientMode] = useState('view') // view | edit | new
   const [clientForm, setClientForm] = useState(null)
   const [savingClient, setSavingClient] = useState(false)
+  // Comment of an existing client, editable without opening the full client form; saved with the policy
+  const [clientComment, setClientComment] = useState('')
 
   const [form, setForm] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -70,6 +76,7 @@ export function PolicyImportDialog({ file, onClose, onSaved, clients, companies,
         const match = findClient(clients, result.client)
         setParsed(result)
         setClient(match?.client || null)
+        setClientComment(match?.client?.comment || '')
         setMatchReason(match?.reason || '')
         setClientMode(match ? 'view' : 'new')
         setClientForm(clientFromParsed(result))
@@ -119,10 +126,12 @@ export function PolicyImportDialog({ file, onClose, onSaved, clients, companies,
 
   const startEditingClient = () => {
     const fromPolicy = clientFromParsed(parsed)
-    // Existing values first; empty ones are filled from the policy
-    setClientForm(Object.fromEntries(
-      Object.keys(fromPolicy).map((key) => [key, client[key] || fromPolicy[key] || ''])
-    ))
+    // Existing values first; empty ones are filled from the policy.
+    // The comment keeps whatever was already typed in the comment box.
+    setClientForm({
+      ...Object.fromEntries(Object.keys(fromPolicy).map((key) => [key, client[key] || fromPolicy[key] || ''])),
+      comment: clientComment,
+    })
     setClientMode('edit')
   }
 
@@ -142,6 +151,7 @@ export function PolicyImportDialog({ file, onClose, onSaved, clients, companies,
 
       toast.success(clientMode === 'edit' ? 'Client updated.' : 'Client added.')
       setClient(data)
+      setClientComment(data.comment || '')
       setMatchReason(clientMode === 'edit' ? matchReason : 'added')
       setClientMode('view')
       reloadClients()
@@ -159,7 +169,9 @@ export function PolicyImportDialog({ file, onClose, onSaved, clients, companies,
       setClientMode('new')
       return
     }
-    setClient(clients.find((c) => String(c.id) === value) || null)
+    const chosen = clients.find((c) => String(c.id) === value) || null
+    setClient(chosen)
+    setClientComment(chosen?.comment || '')
     setMatchReason('chosen')
     setClientMode('view')
   }
@@ -204,6 +216,18 @@ export function PolicyImportDialog({ file, onClose, onSaved, clients, companies,
 
     setSaving(true)
     try {
+      // Save a changed client comment first, so it is not lost if the policy save fails
+      const newComment = clientComment.trim()
+      if (newComment !== (client.comment || '').trim()) {
+        const { error: clientError } = await supabase
+          .from('clients')
+          .update({ comment: newComment || null })
+          .eq('id', client.id)
+        if (clientError) throw clientError
+        setClient((current) => ({ ...current, comment: newComment || null }))
+        reloadClients()
+      }
+
       const { error } = await supabase.from('client_policies').insert([data])
       if (error) throw error
       toast.success(data.policy_number ? `Policy ${data.policy_number} saved.` : 'Policy saved.')
@@ -296,6 +320,23 @@ export function PolicyImportDialog({ file, onClose, onSaved, clients, companies,
               </div>
             )}
 
+            {clientMode === 'view' && client && (
+              <div className="space-y-1.5">
+                <Label htmlFor="import-client-comment">Client comment</Label>
+                <textarea
+                  id="import-client-comment"
+                  rows={2}
+                  value={clientComment}
+                  onChange={(e) => setClientComment(e.target.value)}
+                  placeholder="Notes about this client"
+                  className={TEXTAREA_CLASS}
+                />
+                {clientComment.trim() !== (client.comment || '').trim() && (
+                  <p className="text-xs text-muted-foreground">The changed comment is saved together with the policy.</p>
+                )}
+              </div>
+            )}
+
             {(clientMode === 'new' || clientMode === 'edit') && clientForm && (
               <div className="space-y-3">
                 {clientMode === 'new' && (
@@ -322,6 +363,17 @@ export function PolicyImportDialog({ file, onClose, onSaved, clients, companies,
                       )}
                     </div>
                   ))}
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label htmlFor="import-comment">Client comment</Label>
+                    <textarea
+                      id="import-comment"
+                      rows={2}
+                      value={clientForm.comment || ''}
+                      onChange={(e) => setClientField('comment', e.target.value)}
+                      placeholder="Notes about this client"
+                      className={TEXTAREA_CLASS}
+                    />
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" onClick={saveClient} disabled={savingClient}>
@@ -420,7 +472,7 @@ export function PolicyImportDialog({ file, onClose, onSaved, clients, companies,
                   rows={2}
                   value={form.note}
                   onChange={(e) => setField('note', e.target.value)}
-                  className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  className={TEXTAREA_CLASS}
                 />
               </div>
               <div className="text-sm">

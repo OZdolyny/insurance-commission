@@ -150,6 +150,37 @@ describe('PolicyImportDialog', () => {
     expect(saveButton().disabled).toBe(false)
   })
 
+  it('shows the existing client comment and saves a change together with the policy', async () => {
+    const { onSaved, reloadClients } = renderDialog({ clients: [{ ...existingClient, comment: 'Prefers calls' }] })
+    await screen.findByText('Existing client')
+
+    const box = screen.getByLabelText('Client comment')
+    expect(box.value).toBe('Prefers calls')
+    fireEvent.change(box, { target: { value: 'Prefers calls after 18:00' } })
+    expect(screen.getByText(/saved together with the policy/)).toBeTruthy()
+
+    fireEvent.click(saveButton())
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+
+    expect(writes.map((w) => `${w.method} ${w.table}`)).toEqual(['update clients', 'insert client_policies'])
+    expect(writes[0]).toMatchObject({ where: { id: 7 }, values: { comment: 'Prefers calls after 18:00' } })
+    expect(writes[1].values[0].comment).toBe('ЗАЗ Ланос, BC1234AA') // the policy comment stays the car
+    expect(reloadClients).toHaveBeenCalled()
+  })
+
+  it('saves a comment for a new client', async () => {
+    renderDialog()
+    await screen.findByText('New client: not saved yet')
+
+    fireEvent.change(screen.getByLabelText('Client comment'), { target: { value: 'Recommended by Ігор' } })
+    fireEvent.click(screen.getByRole('button', { name: /add client/i }))
+
+    await screen.findByText('Client added')
+    expect(writes[0].values[0]).toMatchObject({ last_name: 'Коваленко', comment: 'Recommended by Ігор' })
+    // The saved comment now shows in the existing-client view
+    expect(screen.getByLabelText('Client comment').value).toBe('Recommended by Ігор')
+  })
+
   it('blocks saving a policy number that already exists', async () => {
     renderDialog({
       clients: [existingClient],

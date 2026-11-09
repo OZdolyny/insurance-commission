@@ -7,7 +7,7 @@ import { useToast } from './ui/Toast'
 import { PolicyImportDialog } from './PolicyImportDialog'
 
 // Client fields needed to match the policy holder and to edit the client in the dialog
-const CLIENT_COLUMNS = 'id, first_name, last_name, father_name, phone_number, email'
+const CLIENT_COLUMNS = 'id, first_name, last_name, father_name, phone_number, email, comment'
 
 // Opened from the sidebar's "Upload PDF" on any page: loads the lists the review dialog
 // needs (clients, companies, types, rates, saved policy numbers), then shows the dialog.
