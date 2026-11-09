@@ -15,6 +15,7 @@ import { useTableControls } from '../hooks/useTableControls'
 import { daysUntil, formatAmount, formatDate, formatDateInput, maskDateInput } from '../lib/utils'
 import { calculateCommission, formatRate } from '../lib/commission'
 import { buildPolicyData } from '../lib/policyForm'
+import { RENEWAL_LABELS } from '../lib/renewals'
 import { friendlyError } from '../lib/errors'
 import { Plus, AlertCircle, FileText, Pencil, Trash2, X } from 'lucide-react'
 
@@ -29,7 +30,8 @@ const emptyForm = {
   policy_date: '',
   policy_number: '',
   comment: '',
-  no_commission: false
+  no_commission: false,
+  renewal_status: ''
 }
 
 const EXPIRY_FILTERS = [
@@ -173,7 +175,8 @@ function Policies({ params = {}, navigate }) {
       policy_date: policy.policy_date ? formatDateInput(policy.policy_date) : '',
       policy_number: policy.policy_number || '',
       comment: policy.comment || '',
-      no_commission: policy.no_commission || false
+      no_commission: policy.no_commission || false,
+      renewal_status: policy.renewal_status || ''
     })
     // Policies saved with "No commission" have rate 0, so there is no original rate worth keeping
     setOriginalRate(policy.no_commission ? null : {
@@ -524,6 +527,26 @@ function Policies({ params = {}, navigate }) {
                     onChange={(e) => setFormData({ ...formData, end_date: maskDateInput(e.target.value) })}
                   />
                 </div>
+
+                {editingId && (
+                  <div className="space-y-2">
+                    <Label htmlFor="renewal_status">Renewal</Label>
+                    <Select
+                      id="renewal_status"
+                      name="renewal_status"
+                      aria-describedby="renewal_status_hint"
+                      value={formData.renewal_status}
+                      onChange={handleChange}
+                    >
+                      <option value="">Not decided yet</option>
+                      <option value="renewed">{RENEWAL_LABELS.renewed}</option>
+                      <option value="not_renewing">{RENEWAL_LABELS.not_renewing}</option>
+                    </Select>
+                    <p id="renewal_status_hint" className="text-xs text-muted-foreground">
+                      Telegram reminders stop once this is set
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-2">
@@ -633,7 +656,11 @@ function Policies({ params = {}, navigate }) {
                           <span className="text-muted-foreground">
                             {formatDate(policy.end_date)}
                           </span>
-                          {daysUntilExpiry !== null && (
+                          {policy.renewal_status ? (
+                            <Badge variant={policy.renewal_status === 'renewed' ? 'success' : 'secondary'}>
+                              {RENEWAL_LABELS[policy.renewal_status]}
+                            </Badge>
+                          ) : daysUntilExpiry !== null && (
                             <Badge variant={daysUntilExpiry < 0 ? 'error' : daysUntilExpiry <= 30 ? 'warning' : 'secondary'}>
                               {daysUntilExpiry < 0 ? 'Expired' : `${daysUntilExpiry}d left`}
                             </Badge>

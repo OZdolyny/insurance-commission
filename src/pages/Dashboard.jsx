@@ -8,7 +8,9 @@ import { usePeriodFilter } from '../hooks/usePeriodFilter'
 import { daysUntil, formatAmount, formatDate } from '../lib/utils'
 import { commissionTotals } from '../lib/commission'
 import { friendlyError } from '../lib/errors'
-import { Users, FileText, TrendingUp, Clock, CheckCircle2, Lightbulb, BookOpen, AlertCircle, CalendarClock } from 'lucide-react'
+import { findRenewal, RENEWAL_LABELS } from '../lib/renewals'
+import { useToast } from '../components/ui/Toast'
+import { Users, FileText, TrendingUp, Clock, CheckCircle2, Lightbulb, BookOpen, AlertCircle, CalendarClock, XCircle } from 'lucide-react'
 
 // Renewal list: policies ending in the next 30 days, plus those that ended in the last 14
 const RENEWAL_AHEAD_DAYS = 30
@@ -19,6 +21,8 @@ function Dashboard({ navigate }) {
   const [policies, setPolicies] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [savingId, setSavingId] = useState(null)
+  const toast = useToast()
 
   const period = usePeriodFilter(policies, 'start_date')
 
@@ -34,7 +38,7 @@ function Dashboard({ navigate }) {
           .from('client_policies')
           .select(`
             id, client_id, commission_amount, payment_status, start_date, end_date,
-            policy_number, insurance_company_code, insurance_policy_type,
+            policy_number, insurance_company_code, insurance_policy_type, comment, renewal_status,
             clients (first_name, last_name, phone_number)
           `)
       ])
@@ -62,10 +66,26 @@ function Dashboard({ navigate }) {
     pendingCommissions: totals.pending
   }
 
+  // Handled policies (marked, or renewed by a newer policy) leave the list, as they leave the Telegram reminders
   const renewals = policies
+    .filter((p) => !p.renewal_status && !findRenewal(p, policies))
     .map((p) => ({ ...p, daysLeft: p.end_date ? daysUntil(p.end_date) : null }))
     .filter((p) => p.daysLeft !== null && p.daysLeft <= RENEWAL_AHEAD_DAYS && p.daysLeft >= -RENEWAL_BEHIND_DAYS)
     .sort((a, b) => a.daysLeft - b.daysLeft)
+
+  const setRenewalStatus = async (policy, status) => {
+    setSavingId(policy.id)
+    try {
+      const { error } = await supabase.from('client_policies').update({ renewal_status: status }).eq('id', policy.id)
+      if (error) throw error
+      setPolicies((current) => current.map((p) => (p.id === policy.id ? { ...p, renewal_status: status } : p)))
+      toast.success(`${policy.clients?.first_name || 'Policy'} ${policy.clients?.last_name || ''}: ${RENEWAL_LABELS[status].toLowerCase()}. Change it on the Policies page if needed.`)
+    } catch (error) {
+      toast.error(friendlyError(error))
+    } finally {
+      setSavingId(null)
+    }
+  }
 
   if (loading) {
     return (
@@ -201,11 +221,31 @@ function Dashboard({ navigate }) {
                       {p.clients?.phone_number && ` · ${p.clients.phone_number}`}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="text-muted-foreground">{formatDate(p.end_date)}</span>
                     <Badge variant={p.daysLeft < 0 ? 'error' : p.daysLeft <= 7 ? 'warning' : 'secondary'}>
                       {p.daysLeft < 0 ? `Ended ${-p.daysLeft}d ago` : p.daysLeft === 0 ? 'Ends today' : `${p.daysLeft}d left`}
                     </Badge>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={savingId === p.id}
+                      aria-label={`Mark the policy of ${p.clients?.first_name} ${p.clients?.last_name} as renewed`}
+                      onClick={() => setRenewalStatus(p, 'renewed')}
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      Renewed
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={savingId === p.id}
+                      aria-label={`Mark that ${p.clients?.first_name} ${p.clients?.last_name} won't renew`}
+                      onClick={() => setRenewalStatus(p, 'not_renewing')}
+                    >
+                      <XCircle className="h-4 w-4" />
+                      Won’t renew
+                    </Button>
                   </div>
                 </li>
               ))}

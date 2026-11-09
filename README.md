@@ -240,6 +240,36 @@ is not checked. Reading happens in the browser, and the file is not uploaded or 
 The parser lives in `src/lib/policyPdf/` and was built from BBS Insurance policies; other insurers' layouts
 may need small adjustments.
 
+### Telegram Renewal Reminders
+
+Every morning (05:00 UTC, about 07:00–08:00 in Kyiv) a Vercel Cron job (`api/renewal-reminders.js`) sends one
+Telegram message listing policies that end in 30, 7 or 1 days, today, or ended in the last 3 days without
+renewal. Each policy is reminded once per point; if a run is missed, the next one catches up, and failed
+sends are retried (up to 5 times).
+
+Reminders stop for a policy when it is marked **Renewed** or **Won't renew** (buttons in Overview → Upcoming
+Renewals, or the Renewal field when editing a policy), or when the same client has a newer policy of the same
+type for the same car.
+
+**Setup**
+
+1. Run `migration-add-renewal-reminders.sql` in the Supabase SQL Editor (adds the `notifications` table and
+   two columns on `client_policies`). Do this before deploying the code.
+2. Create a bot with @BotFather, press Start in it, and get your chat ID from
+   `https://api.telegram.org/bot<TOKEN>/getUpdates`.
+3. In Vercel → Settings → Environment Variables (Production), add:
+   `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `SUPABASE_SERVICE_ROLE_KEY` (Supabase → Settings → API) and
+   optionally `APP_URL` (adds an "Open" link to each policy). `CRON_SECRET` must also be set.
+   None of these may start with `VITE_`, which would expose them in the browser.
+4. Redeploy, then check (with your `CRON_SECRET`):
+
+   ```bash
+   # Send a test message
+   curl -H "Authorization: Bearer $CRON_SECRET" "https://<your-app>.vercel.app/api/renewal-reminders?test=1"
+   # Show today's reminder without sending or saving it
+   curl -H "Authorization: Bearer $CRON_SECRET" "https://<your-app>.vercel.app/api/renewal-reminders?dry=1"
+   ```
+
 ### Flexible Client Information
 
 - Support for first name, last name, and father name (useful in many cultures)

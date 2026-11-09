@@ -61,7 +61,24 @@ CREATE TABLE client_policies (
   payment_date DATE,
   policy_number TEXT,
   comment TEXT,
+  renewal_status TEXT CHECK (renewal_status IN ('renewed', 'not_renewing')), -- reminders stop when set
+  reminders_snoozed_until DATE, -- no reminders until after this date
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Table 6: Notifications (renewal reminders sent by the daily job)
+CREATE TABLE notifications (
+  id BIGSERIAL PRIMARY KEY,
+  policy_id INTEGER NOT NULL REFERENCES client_policies(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL, -- 'renewal'
+  days_before INTEGER NOT NULL, -- 30, 7, 1, 0, -1 (= ended, not renewed)
+  channel TEXT NOT NULL DEFAULT 'telegram',
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'sent', 'failed')),
+  attempts INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT,
+  sent_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  UNIQUE (policy_id, kind, days_before, channel)
 );
 
 -- Create indexes for better performance
@@ -70,6 +87,8 @@ CREATE INDEX idx_client_policies_company ON client_policies(insurance_company_co
 CREATE INDEX idx_client_policies_type ON client_policies(insurance_policy_type);
 CREATE INDEX idx_client_policies_status ON client_policies(payment_status);
 CREATE INDEX idx_client_policies_policy_date ON client_policies(policy_date);
+CREATE INDEX idx_client_policies_end_date ON client_policies(end_date);
+CREATE INDEX idx_notifications_status ON notifications(status);
 CREATE INDEX idx_policy_rates_company ON insurance_policy_rates(insurance_company_code);
 CREATE INDEX idx_policy_rates_type ON insurance_policy_rates(insurance_policy_type);
 
@@ -78,6 +97,8 @@ ALTER TABLE insurance_companies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE insurance_policy_types ENABLE ROW LEVEL SECURITY;
 ALTER TABLE insurance_policy_rates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
+-- No policies on notifications: only the server-side job (service-role key) can use it
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE client_policies ENABLE ROW LEVEL SECURITY;
 
 -- Create policies (allow all operations for authenticated users)

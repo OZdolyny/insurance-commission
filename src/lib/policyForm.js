@@ -54,6 +54,9 @@ export function buildPolicyData(form, { selectedRate, isNew }) {
   // Only new policies start as pending; editing must keep the existing payment status/date.
   if (isNew) data.payment_status = 'pending'
 
+  // Renewal decision ('renewed' / 'not_renewing'), set when editing; reminders stop once it is set
+  if (!isNew && 'renewal_status' in form) data.renewal_status = form.renewal_status || null
+
   return { data }
 }
 

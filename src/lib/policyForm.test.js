@@ -30,6 +30,13 @@ describe('buildPolicyData', () => {
     expect(buildPolicyData(form, { selectedRate: rate, isNew: false }).data).not.toHaveProperty('payment_status')
   })
 
+  it('saves the renewal decision when editing only', () => {
+    const edited = { ...form, renewal_status: 'renewed' }
+    expect(buildPolicyData(edited, { selectedRate: rate, isNew: false }).data.renewal_status).toBe('renewed')
+    expect(buildPolicyData({ ...form, renewal_status: '' }, { selectedRate: rate, isNew: false }).data.renewal_status).toBeNull()
+    expect(buildPolicyData(edited, { selectedRate: rate, isNew: true }).data).not.toHaveProperty('renewal_status')
+  })
+
   it('reports the first problem', () => {
     expect(buildPolicyData({ ...form, client_id: '' }, { selectedRate: rate }).error).toMatch(/client/)
     expect(buildPolicyData(form, { selectedRate: null }).error).toMatch(/No commission rate/)
