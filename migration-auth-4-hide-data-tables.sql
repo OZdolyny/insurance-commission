@@ -14,6 +14,9 @@ revoke all on table
   public.insurance_policy_rates
 from anon;
 
+-- The reminder log is only used by the server (service-role key); signed-in users never need it
+revoke all on table public.notifications from authenticated;
+
 -- Undo (only if something that runs without signing in still needs these tables):
 --   grant select, insert, update, delete on table public.clients, public.client_policies,
 --     public.insurance_companies, public.insurance_policy_types, public.insurance_policy_rates to anon;
