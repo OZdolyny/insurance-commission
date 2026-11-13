@@ -12,6 +12,8 @@ import { Sidebar } from './components/Sidebar'
 import { PolicyImport } from './components/PolicyImport'
 import { ThemeToggle } from './components/ThemeToggle'
 import { useTheme } from './lib/theme'
+import { AuthProvider, useAuth } from './lib/auth'
+import { AuthLoadingScreen, LoginScreen, NoAccessScreen, SetPasswordScreen } from './components/AuthScreens'
 import { ToastProvider } from './components/ui/Toast'
 import { ConfirmProvider } from './components/ui/ConfirmDialog'
 import { supabaseConfigError } from './lib/supabase'
@@ -66,7 +68,8 @@ function ConfigError() {
   )
 }
 
-function App() {
+// The app itself, shown only to signed-in users with access
+function AppShell({ theme }) {
   const { page, params, navigate } = useHashRoute()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
@@ -74,7 +77,6 @@ function App() {
   const [importFile, setImportFile] = useState(null)
   // Bumped after an import is saved, so the open page reloads its data
   const [refreshKey, setRefreshKey] = useState(0)
-  const theme = useTheme()
 
   // Close the phone menu after navigating
   useEffect(() => {
@@ -93,8 +95,6 @@ function App() {
   useEffect(() => {
     document.title = `${pageTitle[page]} · CommissionPro`
   }, [page])
-
-  if (supabaseConfigError) return <ConfigError />
 
   const Page = pages[page]
 
@@ -169,6 +169,34 @@ function App() {
         </div>
       </ConfirmProvider>
     </ToastProvider>
+  )
+}
+
+// Shows the sign-in screens until the user is signed in and has access
+function AuthGate() {
+  const auth = useAuth()
+  const theme = useTheme() // applies the saved theme to the sign-in screens too
+
+  switch (auth.status) {
+    case 'loading':
+      return <AuthLoadingScreen />
+    case 'signed-out':
+      return <LoginScreen />
+    case 'set-password':
+      return <SetPasswordScreen />
+    case 'no-access':
+      return <NoAccessScreen />
+    default:
+      return <AppShell theme={theme} />
+  }
+}
+
+function App() {
+  if (supabaseConfigError) return <ConfigError />
+  return (
+    <AuthProvider>
+      <AuthGate />
+    </AuthProvider>
   )
 }
 

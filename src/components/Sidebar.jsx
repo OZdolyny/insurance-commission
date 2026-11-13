@@ -14,7 +14,9 @@ import {
   X,
 } from 'lucide-react'
 import { useRef } from 'react'
+import { LogOut } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { ROLE_LABELS, useAuth } from '../lib/auth'
 import { buildHash } from '../lib/router'
 
 // Daily work first, reference data (rarely changed) second
@@ -44,6 +46,7 @@ const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible
 // On desktop: fixed side panel that can collapse to icons.
 // On phones (< md): hidden drawer that slides in from the left.
 export function Sidebar({ currentPage, collapsed, setCollapsed, mobileOpen, onMobileClose, onUploadPdf }) {
+  const { user, role, signOut } = useAuth()
   // The collapsed (icons-only) look only applies on desktop
   const compact = collapsed && !mobileOpen
   const fileInputRef = useRef(null)
@@ -159,6 +162,32 @@ export function Sidebar({ currentPage, collapsed, setCollapsed, mobileOpen, onMo
             </div>
           ))}
         </nav>
+
+        {/* Signed-in user */}
+        <div className={cn('border-t border-sidebar-border p-3', compact && 'md:px-2')}>
+          <div className={cn('flex items-center gap-3', compact && 'md:flex-col md:gap-2')}>
+            <span
+              aria-hidden="true"
+              title={compact ? user?.email : undefined}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-sm font-semibold uppercase text-sidebar-foreground"
+            >
+              {(user?.email || '?').slice(0, 1)}
+            </span>
+            <div className={cn('min-w-0 flex-1', compact && 'md:hidden')}>
+              <div className="truncate text-sm font-medium" title={user?.email}>{user?.email}</div>
+              <div className="text-xs text-sidebar-muted">{ROLE_LABELS[role] || role}</div>
+            </div>
+            <button
+              type="button"
+              onClick={signOut}
+              aria-label="Sign out"
+              title="Sign out"
+              className={cn('rounded-lg p-2 text-sidebar-muted transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground', focusRing)}
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
 
         {/* Collapse toggle (desktop only) */}
         <div className="hidden border-t border-sidebar-border p-3 md:block">

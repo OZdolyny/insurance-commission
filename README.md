@@ -93,6 +93,26 @@ The application uses a professional relational database design:
    - Project URL
    - Anon (public) key
 
+### Sign-in and access
+
+The app requires signing in (Supabase Auth, email and password). Data is protected by row-level security:
+only accounts listed in `public.app_users` can read or change it, so creating an account alone gives no access.
+
+1. **Authentication → Sign In / Providers:** turn off **Allow new users to sign up**.
+2. **Authentication → URL Configuration:** set **Site URL** to the app's address and add it to **Redirect URLs**
+   (invitation and password-reset emails link back there).
+3. **Authentication → Users → Add user → Send invitation** to the person's email. They open the link,
+   choose a password in the app, and are signed in.
+4. Give the account a role in the SQL Editor (`super_admin`, `admin` or `member`):
+   ```sql
+   insert into public.app_users (user_id, role)
+   select id, 'super_admin' from auth.users where email = '<email>';
+   ```
+
+Upgrading an existing database: run `migration-auth-1-roles.sql`, add the super admin (step 4), deploy the
+app with the login screen, then run `migration-auth-2-lock-tables.sql`. In that order, the live app never
+loses access to its data.
+
 ### 2. Configure Environment Variables
 
 1. Copy `.env.example` to `.env`:

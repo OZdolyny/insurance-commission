@@ -101,21 +101,39 @@ ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE client_policies ENABLE ROW LEVEL SECURITY;
 
--- Create policies (allow all operations for authenticated users)
-CREATE POLICY "Enable all operations for authenticated users" ON insurance_companies
-  FOR ALL USING (auth.role() = 'authenticated');
+-- App users and roles (see migration-auth-1-roles.sql for comments)
+CREATE TABLE app_users (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('super_admin', 'admin', 'member')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+ALTER TABLE app_users ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Enable all operations for authenticated users" ON insurance_policy_types
-  FOR ALL USING (auth.role() = 'authenticated');
+CREATE FUNCTION public.app_role() RETURNS TEXT LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
+AS $$ SELECT role FROM public.app_users WHERE user_id = (SELECT auth.uid()) $$;
 
-CREATE POLICY "Enable all operations for authenticated users" ON insurance_policy_rates
-  FOR ALL USING (auth.role() = 'authenticated');
+CREATE FUNCTION public.is_app_user() RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
+AS $$ SELECT EXISTS (SELECT 1 FROM public.app_users WHERE user_id = (SELECT auth.uid())) $$;
 
-CREATE POLICY "Enable all operations for authenticated users" ON clients
-  FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "Users read their own role" ON app_users FOR SELECT TO authenticated
+  USING (user_id = (SELECT auth.uid()) OR (SELECT public.app_role()) = 'super_admin');
+CREATE POLICY "Super admins manage roles" ON app_users FOR ALL TO authenticated
+  USING ((SELECT public.app_role()) = 'super_admin') WITH CHECK ((SELECT public.app_role()) = 'super_admin');
 
-CREATE POLICY "Enable all operations for authenticated users" ON client_policies
-  FOR ALL USING (auth.role() = 'authenticated');
+-- Data: only signed-in users listed in app_users (see migration-auth-2-lock-tables.sql)
+CREATE POLICY "App users have full access" ON insurance_companies FOR ALL TO authenticated
+  USING ((SELECT public.is_app_user())) WITH CHECK ((SELECT public.is_app_user()));
+CREATE POLICY "App users have full access" ON insurance_policy_types FOR ALL TO authenticated
+  USING ((SELECT public.is_app_user())) WITH CHECK ((SELECT public.is_app_user()));
+CREATE POLICY "App users have full access" ON insurance_policy_rates FOR ALL TO authenticated
+  USING ((SELECT public.is_app_user())) WITH CHECK ((SELECT public.is_app_user()));
+CREATE POLICY "App users have full access" ON clients FOR ALL TO authenticated
+  USING ((SELECT public.is_app_user())) WITH CHECK ((SELECT public.is_app_user()));
+CREATE POLICY "App users have full access" ON client_policies FOR ALL TO authenticated
+  USING ((SELECT public.is_app_user())) WITH CHECK ((SELECT public.is_app_user()));
+
+-- After creating your account in Authentication → Users, make it the super admin:
+--   INSERT INTO app_users (user_id, role) SELECT id, 'super_admin' FROM auth.users WHERE email = '<your email>';
 
 -- Sample data to get you started (optional - you can delete this section)
 
