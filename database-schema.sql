@@ -132,6 +132,13 @@ CREATE POLICY "App users have full access" ON clients FOR ALL TO authenticated
 CREATE POLICY "App users have full access" ON client_policies FOR ALL TO authenticated
   USING ((SELECT public.is_app_user())) WITH CHECK ((SELECT public.is_app_user()));
 
+-- Hide everything from anonymous visitors (the app always signs in; see migrations 3 and 4)
+REVOKE EXECUTE ON FUNCTION public.app_role(), public.is_app_user() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.app_role(), public.is_app_user() TO authenticated, service_role;
+REVOKE ALL ON TABLE app_users, notifications, clients, client_policies, insurance_companies, insurance_policy_types, insurance_policy_rates FROM anon;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON TABLES FROM anon;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM anon;
+
 -- After creating your account in Authentication → Users, make it the super admin:
 --   INSERT INTO app_users (user_id, role) SELECT id, 'super_admin' FROM auth.users WHERE email = '<your email>';
 

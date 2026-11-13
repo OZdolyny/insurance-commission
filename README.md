@@ -111,7 +111,11 @@ only accounts listed in `public.app_users` can read or change it, so creating an
 
 Upgrading an existing database: run `migration-auth-1-roles.sql`, add the super admin (step 4), deploy the
 app with the login screen, then run `migration-auth-2-lock-tables.sql`. In that order, the live app never
-loses access to its data.
+loses access to its data. Then run `migration-auth-3-hardening.sql`, and after deploying the keep-alive that
+uses `SUPABASE_SERVICE_ROLE_KEY`, `migration-auth-4-hide-data-tables.sql`.
+
+Server functions (keep-alive, renewal reminders) use `SUPABASE_SERVICE_ROLE_KEY`, set in Vercel for Production only.
+Never give it a `VITE_` name: those values are built into the browser code.
 
 ### 2. Configure Environment Variables
 
