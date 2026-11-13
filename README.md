@@ -261,8 +261,8 @@ and opens a review dialog:
 
 Files signed with a qualified electronic signature (PKCS#7, as sent by insurers) are supported; the signature
 is not checked. Reading happens in the browser, and the file is not uploaded or stored.
-The parser lives in `src/lib/policyPdf/` and was built from BBS Insurance policies; other insurers' layouts
-may need small adjustments.
+The parser lives in `src/lib/policyPdf/` and reads the BBS Insurance (current and older forms) and Arsenal
+Insurance layouts. Other insurers fill in the same official form but may need small adjustments.
 
 ### Telegram Renewal Reminders
 

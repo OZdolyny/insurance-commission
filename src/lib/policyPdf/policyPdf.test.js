@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { unwrapPdf } from './unwrap'
 import { groupIntoRows } from './extractText'
-import { parsePolicy, looksLikePolicy, vehicleComment } from './parsePolicy'
+import { parsePolicy, looksLikePolicy, splitBrandModel, vehicleComment } from './parsePolicy'
 import { findClient, findCompany, findDuplicatePolicy, findPolicyType } from './matching'
 import { latinizeLookalikes, normalizePlate, titleCase } from './normalize'
-import { POLICY_ROWS } from './__fixtures__/policyRows'
+import { ARSENAL_ROWS, OLD_BBS_ROWS, POLICY_ROWS } from './__fixtures__/policyRows'
 
 
 describe('parsePolicy', () => {
@@ -145,5 +145,66 @@ describe('groupIntoRows', () => {
     const item = (str, x, y) => ({ str, transform: [1, 0, 0, 1, x, y] })
     expect(groupIntoRows([item('CHERY', 300, 500), item('9.2. Марка', 50, 501), item('9.3. Модель', 50, 480), item(' ', 0, 0)]))
       .toEqual(['9.2. Марка | CHERY', '9.3. Модель'])
+  })
+})
+
+describe('parsePolicy: Arsenal layout', () => {
+  const parsed = parsePolicy(ARSENAL_ROWS)
+
+  it('reads a digits-only policy number, dates and a premium without "грн"', () => {
+    expect(parsed.policyNumber).toBe('200000002')
+    expect(parsed.policyDate).toBe('13/11/2025')
+    expect(parsed.startDate).toBe('13/11/2025')
+    expect(parsed.endDate).toBe('12/11/2026')
+    expect(parsed.premium).toBe('3483')
+    expect(looksLikePolicy(parsed)).toBe(true)
+  })
+
+  it('reads the unlabelled policyholder block, skipping the tax number', () => {
+    expect(parsed.client).toMatchObject({
+      lastName: 'Петренко', firstName: 'Іван', fatherName: 'Степанович',
+      phone: '(067) 123 45 67', email: 'ivan.petrenko@example.com',
+    })
+  })
+
+  it('reads the insurer and matches it to the company', () => {
+    expect(parsed.insurer).toEqual({ name: 'АРСЕНАЛ СТРАХУВАННЯ', edrpou: '33908322' })
+    expect(findCompany([{ code: 'BBS', name: 'BBS Insurance' }, { code: 'ARS', name: 'Arsenal Insurance' }], parsed.insurer.name)?.code).toBe('ARS')
+    expect(findPolicyType([{ type: 'CPV', name: 'Цивілка' }], parsed)?.type).toBe('CPV')
+  })
+
+  it('ignores stamp text in the car rows and splits brand from model', () => {
+    expect(parsed.vehicle).toMatchObject({ brand: 'CHEVROLET', model: 'LACETTI', plate: 'BC1234AA', year: '2006' })
+    expect(vehicleComment(parsed.vehicle)).toBe('CHEVROLET LACETTI, BC1234AA')
+  })
+})
+
+describe('parsePolicy: older BBS form', () => {
+  it('reads "П.І.Б." and "E-mail" labels', () => {
+    const parsed = parsePolicy(OLD_BBS_ROWS)
+    expect(parsed.client).toMatchObject({ lastName: 'Мельник', firstName: 'Ольга', fatherName: 'Петрівна', phone: '(093) 000 00 01', email: 'olga.melnyk@example.com' })
+    expect(parsed.policyNumber).toBe('EP-200000003')
+    expect(parsed.premium).toBe('2778')
+    expect(vehicleComment(parsed.vehicle)).toBe('RENAULT MEGANE SCENIC, BC0000MK')
+  })
+})
+
+describe('splitBrandModel', () => {
+  it('keeps separate brand and model', () => {
+    expect(splitBrandModel('CHERY', 'QQ')).toEqual(['CHERY', 'QQ'])
+    expect(splitBrandModel('RENAULT', 'MEGANE SCENIC')).toEqual(['RENAULT', 'MEGANE SCENIC'])
+  })
+
+  it('removes a repeated brand from the model', () => {
+    expect(splitBrandModel('CHEVROLET', 'CHEVROLET LACETTI')).toEqual(['CHEVROLET', 'LACETTI'])
+    expect(splitBrandModel('CHEVROLET LACETTI', 'CHEVROLET LACETTI')).toEqual(['CHEVROLET', 'LACETTI'])
+  })
+
+  it('keeps two-word brands together', () => {
+    expect(splitBrandModel('LAND ROVER DISCOVERY', 'LAND ROVER DISCOVERY')).toEqual(['LAND ROVER', 'DISCOVERY'])
+  })
+
+  it('leaves empty values alone', () => {
+    expect(splitBrandModel('', 'QQ')).toEqual(['', 'QQ'])
   })
 })
