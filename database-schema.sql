@@ -54,6 +54,11 @@ CREATE TABLE client_policies (
   start_date DATE NOT NULL,
   end_date DATE,
   policy_date DATE, -- contract date ("Дата укладення Договору")
+  -- Stored policy file (Supabase Storage bucket "policy-files"; see migration-policy-files.sql for the bucket and its access rules)
+  file_path TEXT,
+  file_name TEXT,
+  file_size INTEGER,
+  file_uploaded_at TIMESTAMP WITH TIME ZONE,
   commission_rate DECIMAL(5, 4) NOT NULL,
   no_commission BOOLEAN DEFAULT FALSE, -- If true, commission_amount = 0
   commission_amount DECIMAL(12, 2) NOT NULL,

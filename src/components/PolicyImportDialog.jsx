@@ -16,6 +16,7 @@ import { buildPolicyData, findRate } from '../lib/policyForm'
 import { calculateCommission, formatRate } from '../lib/commission'
 import { friendlyError } from '../lib/errors'
 import { formatAmount, formatPhoneNumber, maskDateInput } from '../lib/utils'
+import { attachPolicyFile, formatFileSize } from '../lib/policyFiles'
 
 const CLIENT_FIELDS = [
   { name: 'last_name', label: 'Last Name *', required: true },
@@ -56,6 +57,8 @@ export function PolicyImportDialog({ file, onClose, onSaved, clients, companies,
 
   const [form, setForm] = useState(null)
   const [saving, setSaving] = useState(false)
+  // Keep the uploaded PDF with the saved policy (Supabase Storage)
+  const [storeFile, setStoreFile] = useState(true)
 
   // Read the file whenever a new one is chosen
   useEffect(() => {
@@ -227,9 +230,20 @@ export function PolicyImportDialog({ file, onClose, onSaved, clients, companies,
         reloadClients()
       }
 
-      const { error } = await supabase.from('client_policies').insert([data])
+      const { data: saved, error } = await supabase.from('client_policies').insert([data]).select('id, file_path').single()
       if (error) throw error
-      toast.success(data.policy_number ? `Policy ${data.policy_number} saved.` : 'Policy saved.')
+
+      const label = data.policy_number ? `Policy ${data.policy_number}` : 'Policy'
+      if (storeFile) {
+        try {
+          await attachPolicyFile(saved, file)
+          toast.success(`${label} saved with its PDF.`)
+        } catch (fileError) {
+          toast.error(`${label} was saved, but the PDF could not be stored: ${friendlyError(fileError)}. You can attach it later in Edit.`)
+        }
+      } else {
+        toast.success(`${label} saved.`)
+      }
       onSaved()
     } catch (error) {
       toast.error(friendlyError(error))
@@ -506,6 +520,21 @@ export function PolicyImportDialog({ file, onClose, onSaved, clients, companies,
               ) : null}
             </div>
           </section>
+
+          <label className="flex items-start gap-3 rounded-lg border border-border p-4 text-sm">
+            <input
+              type="checkbox"
+              checked={storeFile}
+              onChange={(e) => setStoreFile(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-input"
+            />
+            <span>
+              <span className="font-medium">Store this PDF with the policy</span>
+              <span className="block text-muted-foreground">
+                {file.name} · {formatFileSize(file.size)}. You can open or download it from the Policies page.
+              </span>
+            </span>
+          </label>
 
           <div className="flex flex-wrap gap-2">
             <Button onClick={savePolicy} disabled={saving || !!duplicate || !client || clientMode !== 'view'}>

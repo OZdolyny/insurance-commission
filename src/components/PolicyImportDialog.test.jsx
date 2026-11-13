@@ -14,6 +14,18 @@ vi.mock('../lib/policyPdf/extractText', () => ({
 const writes = []
 vi.mock('../lib/supabase', () => ({
   supabase: {
+    storage: {
+      from: (bucket) => ({
+        upload: async (path) => {
+          writes.push({ table: 'storage', method: 'upload', bucket, path })
+          return { error: null }
+        },
+        remove: async (paths) => {
+          writes.push({ table: 'storage', method: 'remove', bucket, paths })
+          return { error: null }
+        },
+      }),
+    },
     from: (table) => {
       const call = { table }
       const result = () => {
@@ -84,7 +96,10 @@ describe('PolicyImportDialog', () => {
     fireEvent.click(saveButton())
     await waitFor(() => expect(onSaved).toHaveBeenCalled())
 
-    expect(writes).toHaveLength(1)
+    // Policy row, then its PDF (stored by default), then the file details on the policy
+    expect(writes.map((w) => `${w.method} ${w.table}`)).toEqual(['insert client_policies', 'upload storage', 'update client_policies'])
+    expect(writes[1]).toMatchObject({ bucket: 'policy-files', path: expect.stringMatching(/^501\/.+\.pdf$/) })
+    expect(writes[2]).toMatchObject({ where: { id: 501 }, values: { file_path: writes[1].path, file_name: 'policy.pdf' } })
     expect(writes[0]).toMatchObject({ table: 'client_policies', method: 'insert' })
     expect(writes[0].values[0]).toMatchObject({
       client_id: 7,
@@ -164,7 +179,7 @@ describe('PolicyImportDialog', () => {
     fireEvent.click(saveButton())
     await waitFor(() => expect(onSaved).toHaveBeenCalled())
 
-    expect(writes.map((w) => `${w.method} ${w.table}`)).toEqual(['update clients', 'insert client_policies'])
+    expect(writes.map((w) => `${w.method} ${w.table}`)).toEqual(['update clients', 'insert client_policies', 'upload storage', 'update client_policies'])
     expect(writes[0]).toMatchObject({ where: { id: 7 }, values: { comment: 'Prefers calls after 18:00' } })
     expect(writes[1].values[0].comment).toBe('ЗАЗ Ланос, BC1234AA') // the policy comment stays the car
     expect(reloadClients).toHaveBeenCalled()
@@ -181,6 +196,19 @@ describe('PolicyImportDialog', () => {
     expect(writes[0].values[0]).toMatchObject({ last_name: 'Коваленко', comment: 'Recommended by Ігор' })
     // The saved comment now shows in the existing-client view
     expect(screen.getByLabelText('Client comment').value).toBe('Recommended by Ігор')
+  })
+
+  it('saves the policy without storing the PDF when the option is unticked', async () => {
+    const { onSaved } = renderDialog({ clients: [existingClient] })
+    await screen.findByText('Existing client')
+
+    const option = screen.getByRole('checkbox', { name: /Store this PDF with the policy/ })
+    expect(option.checked).toBe(true)
+    fireEvent.click(option)
+
+    fireEvent.click(saveButton())
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(writes.map((w) => `${w.method} ${w.table}`)).toEqual(['insert client_policies'])
   })
 
   it('blocks saving a policy number that already exists', async () => {

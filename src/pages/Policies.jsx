@@ -17,7 +17,12 @@ import { calculateCommission, formatRate } from '../lib/commission'
 import { buildPolicyData } from '../lib/policyForm'
 import { RENEWAL_LABELS } from '../lib/renewals'
 import { friendlyError } from '../lib/errors'
-import { Plus, AlertCircle, FileText, Pencil, Trash2, X } from 'lucide-react'
+import { attachPolicyFile, deleteStoredFile, removePolicyFile } from '../lib/policyFiles'
+import { PolicyFileField } from '../components/PolicyFileField'
+import { PolicyFileViewer } from '../components/PolicyFileViewer'
+import { Plus, AlertCircle, FileText, Pencil, Trash2, X, Paperclip } from 'lucide-react'
+
+const NO_FILE_CHANGE = { pendingFile: null, removeExisting: false }
 
 const emptyForm = {
   client_id: '',
@@ -52,6 +57,7 @@ const sorters = {
   commission: (p) => parseFloat(p.commission_amount),
   start: (p) => p.start_date,
   end: (p) => p.end_date,
+  file: (p) => (p.file_path ? 0 : 1), // policies with a file first
 }
 
 function Policies({ params = {}, navigate }) {
@@ -71,6 +77,11 @@ function Policies({ params = {}, navigate }) {
   const [formData, setFormData] = useState(emptyForm)
   // Rate the policy being edited was saved with, so editing keeps it instead of picking up today's rate
   const [originalRate, setOriginalRate] = useState(null)
+  // Policy file changes in the form, applied on save
+  const [fileChange, setFileChange] = useState(NO_FILE_CHANGE)
+  const [saving, setSaving] = useState(false)
+  // Policy whose file is open in the preview dialog
+  const [viewingFile, setViewingFile] = useState(null)
 
   useEffect(() => {
     fetchData()
@@ -144,17 +155,34 @@ function Policies({ params = {}, navigate }) {
       return
     }
 
+    setSaving(true)
     try {
-      const { error } = editingId
-        ? await supabase.from('client_policies').update(policyData).eq('id', editingId)
-        : await supabase.from('client_policies').insert([policyData])
+      const { data: saved, error } = editingId
+        ? await supabase.from('client_policies').update(policyData).eq('id', editingId).select('id, file_path').single()
+        : await supabase.from('client_policies').insert([policyData]).select('id, file_path').single()
 
       if (error) throw error
-      toast.success(editingId ? 'Policy updated.' : 'Policy added.')
+
+      // The file is stored after the policy, so a new policy has an id for the file's path
+      let fileProblem = null
+      try {
+        if (fileChange.pendingFile) await attachPolicyFile(saved, fileChange.pendingFile)
+        else if (fileChange.removeExisting) await removePolicyFile(saved)
+      } catch (fileError) {
+        fileProblem = friendlyError(fileError)
+      }
+
+      if (fileProblem) {
+        toast.error(`The policy was saved, but the file could not be ${fileChange.pendingFile ? 'uploaded' : 'deleted'}: ${fileProblem}`)
+      } else {
+        toast.success(editingId ? 'Policy updated.' : 'Policy added.')
+      }
       resetForm()
       fetchData()
     } catch (error) {
       toast.error(friendlyError(error))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -184,6 +212,7 @@ function Policies({ params = {}, navigate }) {
       insurance_policy_type: policy.insurance_policy_type,
       commission_rate: policy.commission_rate
     })
+    setFileChange(NO_FILE_CHANGE)
     setEditingId(policy.id)
     setShowForm(true)
     requestAnimationFrame(() => document.getElementById('policy-edit-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
@@ -192,7 +221,7 @@ function Policies({ params = {}, navigate }) {
   const handleDelete = async (policy) => {
     const ok = await confirm({
       title: 'Delete this policy?',
-      message: `${clientName(policy)} · ${policy.insurance_company_code} ${policy.insurance_policy_type} · ${formatAmount(policy.amount)}. Its commission record is deleted too. This cannot be undone.`,
+      message: `${clientName(policy)} · ${policy.insurance_company_code} ${policy.insurance_policy_type} · ${formatAmount(policy.amount)}. Its commission record${policy.file_path ? ' and stored policy file are' : ' is'} deleted too. This cannot be undone.`,
       confirmLabel: 'Delete policy',
       destructive: true
     })
@@ -201,6 +230,8 @@ function Policies({ params = {}, navigate }) {
     try {
       const { error } = await supabase.from('client_policies').delete().eq('id', policy.id)
       if (error) throw error
+      // The stored file is not removed with the row, so delete it too
+      await deleteStoredFile(policy.file_path)
       toast.success('Policy deleted.')
       if (editingId === policy.id) resetForm()
       fetchData()
@@ -213,6 +244,7 @@ function Policies({ params = {}, navigate }) {
     setFormData(emptyForm)
     setEditingId(null)
     setOriginalRate(null)
+    setFileChange(NO_FILE_CHANGE)
     setShowForm(false)
   }
 
@@ -255,6 +287,7 @@ function Policies({ params = {}, navigate }) {
     )
   }
 
+  const editingPolicy = editingId ? policies.find((p) => p.id === editingId) : null
   const filteredClient = clientFilter ? clients.find((c) => c.id === clientFilter) : null
   const clientPolicyCount = clientFilter ? policies.filter((p) => p.client_id === clientFilter).length : policies.length
   const sortProps = { sort: table.sort, onSort: table.toggleSort }
@@ -549,8 +582,20 @@ function Policies({ params = {}, navigate }) {
                 )}
               </div>
 
+              <div className="space-y-2">
+                <Label>Policy File</Label>
+                <PolicyFileField
+                  existing={editingPolicy?.file_path ? editingPolicy : null}
+                  value={fileChange}
+                  onChange={setFileChange}
+                  onPreview={editingPolicy?.file_path ? () => setViewingFile(editingPolicy) : undefined}
+                />
+              </div>
+
               <div className="flex gap-2">
-                <Button type="submit">{editingId ? 'Update Policy' : 'Add Policy'}</Button>
+                <Button type="submit" disabled={saving}>
+                  {saving ? 'Saving…' : editingId ? 'Update Policy' : 'Add Policy'}
+                </Button>
                 <Button type="button" variant="secondary" onClick={resetForm}>
                   Cancel
                 </Button>
@@ -598,6 +643,7 @@ function Policies({ params = {}, navigate }) {
               <SortableTableHead sortKey="commission" {...sortProps}>Commission</SortableTableHead>
               <SortableTableHead sortKey="end" {...sortProps}>Dates</SortableTableHead>
               <TableHead>Comment</TableHead>
+              <SortableTableHead sortKey="file" {...sortProps}>File</SortableTableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -673,6 +719,23 @@ function Policies({ params = {}, navigate }) {
                     {policy.comment || '-'}
                   </TableCell>
                   <TableCell>
+                    {policy.file_path ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 gap-1.5 px-2 text-primary"
+                        aria-label={`Open policy file ${policy.file_name || ''}`}
+                        title={policy.file_name || 'Policy file'}
+                        onClick={() => setViewingFile(policy)}
+                      >
+                        <Paperclip className="h-4 w-4" />
+                        PDF
+                      </Button>
+                    ) : (
+                      <span className="text-muted-foreground" aria-label="No file">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" aria-label="Edit policy" onClick={() => handleEdit(policy)}>
                         <Pencil className="h-4 w-4" />
@@ -688,6 +751,8 @@ function Policies({ params = {}, navigate }) {
           </TableBody>
         </Table>
       )}
+
+      {viewingFile && <PolicyFileViewer policy={viewingFile} onClose={() => setViewingFile(null)} />}
     </div>
   )
 }

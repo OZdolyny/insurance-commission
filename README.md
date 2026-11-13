@@ -238,6 +238,19 @@ When you create a policy:
 - The Overview page lists policies due for renewal in the next 30 days
 - Every page has its own URL (e.g. `#/policies?client=12`), so refresh and the back button work
 
+### Policy Files
+
+Each policy can have its PDF stored in Supabase Storage (private bucket `policy-files`, up to 10 MB):
+
+- **Add / Update Policy:** attach a PDF (button or drag and drop), replace it, preview it, or delete it. Changes are
+  saved together with the policy.
+- **Upload PDF:** "Store this PDF with the policy" (on by default) keeps the uploaded file with the saved policy.
+- **Policies grid:** the File column shows 📎 PDF for policies with a file; it opens a preview with **Download**.
+- The original file is stored unchanged, including an insurer's electronic signature; the preview unwraps it.
+- Only signed-in app users can read or change the files. Deleting a policy deletes its file.
+
+Setup: run `migration-policy-files.sql` (adds the file columns, the private bucket and its access rules).
+
 ### Reports
 
 The **Reports** page lists full name, policy number, policy date, policy amount, commission, company and
