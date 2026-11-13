@@ -644,7 +644,7 @@ function Policies({ params = {}, navigate }) {
               <SortableTableHead sortKey="end" {...sortProps}>Dates</SortableTableHead>
               <TableHead>Comment</TableHead>
               <SortableTableHead sortKey="file" {...sortProps}>File</SortableTableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead sticky="end" className="px-3 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -659,12 +659,13 @@ function Policies({ params = {}, navigate }) {
                       <div className="text-xs font-normal text-muted-foreground">#{policy.policy_number}</div>
                     )}
                   </TableCell>
-                  <TableCell>
+                  <TableCell title={policy.insurance_companies?.name}>
                     <div className="flex items-center gap-2">
                       <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
                         {policy.insurance_companies?.code}
                       </span>
-                      <span className="text-sm text-muted-foreground">{policy.insurance_companies?.name}</span>
+                      {/* Full name only where there is room; the code (and hover) is enough elsewhere */}
+                      <span className="hidden max-w-[8rem] text-sm leading-tight text-muted-foreground 2xl:inline-block">{policy.insurance_companies?.name}</span>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -715,7 +716,7 @@ function Policies({ params = {}, navigate }) {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="max-w-[240px] truncate text-muted-foreground" title={policy.comment || undefined}>
+                  <TableCell className="max-w-[180px] truncate text-muted-foreground" title={policy.comment || undefined}>
                     {policy.comment || '-'}
                   </TableCell>
                   <TableCell>
@@ -735,8 +736,8 @@ function Policies({ params = {}, navigate }) {
                       <span className="text-muted-foreground" aria-label="No file">—</span>
                     )}
                   </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
+                  <TableCell sticky="end" className="px-2">
+                    <div className="flex justify-end gap-1">
                       <Button variant="ghost" size="icon" aria-label="Edit policy" onClick={() => handleEdit(policy)}>
                         <Pencil className="h-4 w-4" />
                       </Button>

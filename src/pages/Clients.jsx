@@ -256,7 +256,7 @@ function Clients({ navigate }) {
               <TableHead>Comment</TableHead>
               <SortableTableHead sortKey="policies" {...sortProps}>Policies</SortableTableHead>
               <SortableTableHead sortKey="added" {...sortProps}>Added</SortableTableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead sticky="end" className="px-3 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -283,7 +283,7 @@ function Clients({ navigate }) {
                   </Button>
                 </TableCell>
                 <TableCell className="text-muted-foreground">{formatDate(client.created_at)}</TableCell>
-                <TableCell className="text-right">
+                <TableCell sticky="end" className="px-2 text-right">
                   <Button
                     variant="ghost"
                     size="icon"

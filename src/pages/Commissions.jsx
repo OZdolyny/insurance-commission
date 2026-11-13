@@ -320,7 +320,7 @@ function Commissions() {
                 <SortableTableHead sortKey="commission" {...sortProps}>Commission</SortableTableHead>
                 <SortableTableHead sortKey="status" {...sortProps}>Status</SortableTableHead>
                 <SortableTableHead sortKey="start" {...sortProps}>Dates</SortableTableHead>
-                <TableHead>Action</TableHead>
+                <TableHead sticky="end" className="px-3">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -381,7 +381,7 @@ function Commissions() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell sticky="end" className="px-3">
                     {commission.payment_status === 'pending' ? (
                       <Button variant="success" size="sm" onClick={() => openPaymentDialog([commission.id])}>
                         Mark Paid

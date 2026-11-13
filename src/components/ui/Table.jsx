@@ -29,7 +29,7 @@ export function TableBody({ className, children, ...props }) {
 
 export function TableRow({ className, children, ...props }) {
   return (
-    <tr className={cn('transition-colors hover:bg-muted/50', className)} {...props}>
+    <tr className={cn('group transition-colors hover:bg-muted/50', className)} {...props}>
       {children}
     </tr>
   )
@@ -37,9 +37,16 @@ export function TableRow({ className, children, ...props }) {
 
 const headClass = 'h-11 whitespace-nowrap px-4 text-left align-middle text-xs font-semibold uppercase tracking-wide text-muted-foreground'
 
-export function TableHead({ className, children, ...props }) {
+// sticky="end": the column stays pinned to the right edge while a wide table scrolls sideways
+// (e.g. row actions). Pinned cells need solid backgrounds, so they mix the same tints as the
+// header (muted 70%) and row hover (muted 50%) into the card color; a 1px line separates them.
+const stickyEnd = 'sticky right-0 z-10 shadow-[inset_1px_0_0_var(--color-border)]'
+const stickyHead = `${stickyEnd} bg-[color-mix(in_oklab,var(--color-muted)_70%,var(--color-card))]`
+const stickyCell = `${stickyEnd} bg-card group-hover:bg-[color-mix(in_oklab,var(--color-muted)_50%,var(--color-card))]`
+
+export function TableHead({ className, sticky, children, ...props }) {
   return (
-    <th className={cn(headClass, className)} {...props}>
+    <th className={cn(headClass, sticky === 'end' && stickyHead, className)} {...props}>
       {children}
     </th>
   )
@@ -69,9 +76,9 @@ export function SortableTableHead({ sortKey, sort, onSort, className, children }
   )
 }
 
-export function TableCell({ className, children, ...props }) {
+export function TableCell({ className, sticky, children, ...props }) {
   return (
-    <td className={cn('px-4 py-3 align-middle', className)} {...props}>
+    <td className={cn('px-4 py-3 align-middle', sticky === 'end' && stickyCell, className)} {...props}>
       {children}
     </td>
   )
