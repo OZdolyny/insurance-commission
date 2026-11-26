@@ -2,6 +2,8 @@
 
 A comprehensive web application for insurance agents to manage multiple insurance companies, track clients, policies, and automatically calculate commissions based on predefined rates.
 
+📘 **Full technical description** (architecture, services, logic, data model, security, size): [docs/SYSTEM-OVERVIEW.md](docs/SYSTEM-OVERVIEW.md)
+
 ## Features
 
 - 📊 Dashboard with comprehensive statistics
